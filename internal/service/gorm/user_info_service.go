@@ -1,18 +1,19 @@
 package gorm
 
 import (
+	"encoding/json"
 	"errors"
-	"math/rand"
-	"regexp"
-	"strconv"
-	"time"
-
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"github.com/puoxiu/gogochat/internal/dao"
 	"github.com/puoxiu/gogochat/internal/dto/request"
+	"github.com/puoxiu/gogochat/internal/dto/respond"
 	"github.com/puoxiu/gogochat/internal/model"
-	"github.com/puoxiu/gogochat/internal/service/sms"
+	"github.com/puoxiu/gogochat/pkg/random"
 	"github.com/puoxiu/gogochat/pkg/zlog"
-	"gorm.io/gorm"
+	"regexp"
+	"time"
 )
 
 type userInfoService struct {
@@ -33,7 +34,7 @@ func (u *userInfoService) checkTelephoneValid(telephone string) bool {
 
 // checkEmailValid 校验邮箱是否有效
 func (u *userInfoService) checkEmailValid(email string) bool {
-	pattern := `^[\w\.-]+@[\w-]+\.[\w{2,3}(\.\w{2})?]$`
+	pattern := `^[^\s@]+@[^\s@]+\.[^\s@]+$`
 	match, err := regexp.MatchString(pattern, email)
 	if err != nil {
 		zlog.Fatal(err.Error())
@@ -41,13 +42,13 @@ func (u *userInfoService) checkEmailValid(email string) bool {
 	return match
 }
 
-// TODO
+// checkUserIsAdminOrNot 检验用户是否为管理员
 func (u *userInfoService) checkUserIsAdminOrNot(user model.UserInfo) bool {
-	return false
+	return user.IsAdmin
 }
 
 // Login 登录
-func (u *userInfoService) Login(loginReq request.LoginRequest) (string, error) {
+func (u *userInfoService) Login(c *gin.Context, loginReq request.LoginRequest) (string, string, error) {
 	password := loginReq.Password
 	var user model.UserInfo
 	res := dao.GormDB.First(&user, "telephone = ?", loginReq.Telephone)
@@ -55,68 +56,103 @@ func (u *userInfoService) Login(loginReq request.LoginRequest) (string, error) {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			message := "user not existed"
 			zlog.Info(message)
-			return message, nil
+			return message, "", nil
 		}
 		zlog.Error(res.Error.Error())
-		return "", res.Error
+		return "", "", res.Error
 	}
 	if user.Password != password {
 		message := "password not correct"
 		zlog.Info(message)
-		return message, nil
+		return message, "", nil
 	}
 	// 手机号验证，最后一步才调用api，省钱hhh
-	err := sms.VerificationCode(loginReq.Telephone)
+	//if err := sms.VerificationCode(loginReq.Telephone); err != nil {
+	//	zlog.Error(err.Error())
+	//	return "", err
+	//}
+	// 登录成功，chat client建立
+	//if err := chat.NewClientInit(c, user.Uuid); err != nil {
+	//	return "", err
+	//}
+	loginRsp := respond.LoginRespond{
+		Uuid:      user.Uuid,
+		Telephone: user.Telephone,
+		Nickname:  user.Nickname,
+		Email:     user.Email,
+		Avatar:    user.Avatar,
+		Gender:    user.Gender,
+		Birthday:  user.Birthday,
+		Signature: user.Signature,
+	}
+	year, month, day := user.CreatedAt.Date()
+	loginRsp.CreatedAt = fmt.Sprintf("%d.%d.%d", year, month, day)
+	loginRspStr, err := json.Marshal(loginRsp)
 	if err != nil {
 		zlog.Error(err.Error())
-		return "", err
+		return "", "", err
 	}
-	return "", nil
+	return "", string(loginRspStr), nil
 }
 
-// Register 注册
-func (u *userInfoService) Register(registerReq request.RegisterRequest) (string, error) {
-	// 校验手机号是否有效
-	if !u.checkTelephoneValid(registerReq.Telephone) {
-		message := "telephone invalid"
-		zlog.Info(message)
-		return message, nil
-	}
+// Register 注册，返回(message, register_respond_string, error)
+func (u *userInfoService) Register(c *gin.Context, registerReq request.RegisterRequest) (string, string, error) {
+	// 不用校验手机号，前端校验
+
 	var newUser model.UserInfo
 	res := dao.GormDB.First(&newUser, "telephone = ?", registerReq.Telephone)
 	if res.Error == nil {
 		// 用户已经存在，注册失败
 		message := "user already existed"
 		zlog.Info(message)
-		return message, nil
+		return message, "", nil
 	} else {
 		// 其他报错
 		if !errors.Is(res.Error, gorm.ErrRecordNotFound) {
 			zlog.Error(res.Error.Error())
-			return "", res.Error
+			return "", "", res.Error
 		}
 		// 可以继续注册
 	}
-	// 100000000000 - 99999999999 11位随机数
-	tmpInt1 := rand.Intn(10000000000)
-	tmpInt2 := (rand.Intn(9) + 1) * 10000000000
-	tmpInt := tmpInt1 + tmpInt2
-	newUser.Uuid = "U" + strconv.Itoa(tmpInt)
-	newUser.TelePhone = registerReq.Telephone
+	newUser.Uuid = "U" + random.GetNowAndLenRandomString(11)
+	newUser.Telephone = registerReq.Telephone
 	newUser.Password = registerReq.Password
-	newUser.NickName = registerReq.NickName
+	newUser.Nickname = registerReq.Nickname
+	newUser.Avatar = "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png"
 	newUser.CreatedAt = time.Now()
 	newUser.IsAdmin = u.checkUserIsAdminOrNot(newUser)
-	// 手机号验证，最后一步才调用api，
-	err := sms.VerificationCode(registerReq.Telephone)
-	if err != nil {
-		zlog.Error(err.Error())
-		return "", err
-	}
+	// 手机号验证，最后一步才调用api，省钱hhh
+	//err := sms.VerificationCode(registerReq.Telephone)
+	//if err != nil {
+	//	zlog.Error(err.Error())
+	//	return "", err
+	//}
 	res = dao.GormDB.Create(&newUser)
 	if res.Error != nil {
 		zlog.Error(res.Error.Error())
-		return "", res.Error
+		return "", "", res.Error
 	}
-	return "", nil
+	// 注册成功，chat client建立
+	//if err := chat.NewClientInit(c, newUser.Uuid); err != nil {
+	//	return "", err
+	//}
+	newUser.LastOnlineAt = time.Now()
+	registerRsp := respond.LoginRespond{
+		Uuid:      newUser.Uuid,
+		Telephone: newUser.Telephone,
+		Nickname:  newUser.Nickname,
+		Email:     newUser.Email,
+		Avatar:    newUser.Avatar,
+		Gender:    newUser.Gender,
+		Birthday:  newUser.Birthday,
+		Signature: newUser.Signature,
+	}
+	year, month, day := newUser.CreatedAt.Date()
+	registerRsp.CreatedAt = fmt.Sprintf("%d.%d.%d", year, month, day)
+	registerRspStr, err := json.Marshal(registerRsp)
+	if err != nil {
+		zlog.Error(err.Error())
+		return "", "", err
+	}
+	return "", string(registerRspStr), nil
 }

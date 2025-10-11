@@ -11,47 +11,60 @@ import (
 )
 
 var logger *zap.Logger
-var logPath string
+var logPath string // 最终会是“目录/文件名”，如 logs/app.log
 
-// 自动调用
+// 自动调用：初始化日志
 func init() {
-	encoderConfig := zap.NewProductionEncoderConfig()
-	// 设置日志记录中时间格式
-	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	// 日志encoder还是JSONEncoder，把日志行格式化成JSON格式
-	encoder := zapcore.NewJSONEncoder(encoderConfig)
+	// 1. 从配置读取日志目录，拼接出“日志文件路径”（目录+文件名）
 	conf := config.GetConfig()
-	logPath = conf.LogPath
-	file, _ := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 644)
-	fileWriteSyncer := zapcore.AddSync(file)
+	logDir := conf.LogPath       // 配置的日志目录：/Users/.../gogochat/logs
+	logPath = path.Join(logDir, "app.log") // 拼接日志文件路径：logs/app.log
+
+	// 2. 确保日志目录存在（不存在则创建，避免lumberjack报错）
+	if err := os.MkdirAll(logDir, 0755); err != nil {
+		panic("创建日志目录失败：" + err.Error()) // 明确报错，避免隐藏问题
+	}
+
+	// 3. 配置日志格式（JSON格式，带ISO时间）
+	encoderConfig := zap.NewProductionEncoderConfig()
+	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder // 时间格式：2025-10-11T15:58:02+0800
+	encoder := zapcore.NewJSONEncoder(encoderConfig)      // 日志输出为JSON格式
+
+	// 4. 获取日志写入器（使用lumberjack，负责创建文件、切割日志）
+	fileWriteSyncer := getFileLogWriter() // 关键：调用之前定义的lumberjack逻辑
+
+	// 5. 创建zap核心：同时输出到“控制台”和“文件”，日志级别为Debug
 	core := zapcore.NewTee(
+		// 输出到控制台（Debug级别，方便开发调试）
 		zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), zapcore.DebugLevel),
+		// 输出到文件（Debug级别，所有日志都存文件）
 		zapcore.NewCore(encoder, fileWriteSyncer, zapcore.DebugLevel),
 	)
+
+	// 6. 初始化zap logger
 	logger = zap.New(core)
 }
 
+// getFileLogWriter：基于lumberjack实现日志文件管理（切割、备份）
 func getFileLogWriter() (writeSyncer zapcore.WriteSyncer) {
 	lumberJackLogger := &lumberjack.Logger{
-		Filename:   logPath,
-		MaxSize:    100, // 单个文件最大100M
-		MaxBackups: 60,  // 多于60个日志文件后，清理较旧的日志
-		MaxAge:     1,   // 一天一切割
-		Compress:   false,
+		Filename:   logPath,   // 日志文件路径（已拼接好：logs/app.log）
+		MaxSize:    100,       // 单个日志文件最大100MB
+		MaxBackups: 60,        // 最多保留60个备份文件（超过则删除旧文件）
+		MaxAge:     1,         // 日志文件最多保留1天（超过则删除）
+		Compress:   false,     // 不压缩备份文件（开发阶段简化）
 	}
-
 	return zapcore.AddSync(lumberJackLogger)
 }
 
-// getCallerInfoForLog 获得调用方的日志信息，包括函数名，文件名，行号
+// 以下函数（getCallerInfoForLog、Info、Warn等）保持不变，无需修改
 func getCallerInfoForLog() (callerFields []zap.Field) {
-	pc, file, line, ok := runtime.Caller(2) // 回溯两层，拿到写日志的调用方的函数信息
+	pc, file, line, ok := runtime.Caller(2)
 	if !ok {
 		return
 	}
 	funcName := runtime.FuncForPC(pc).Name()
-	funcName = path.Base(funcName) // Base函数返回路径的最后一个元素，只保留函数名
-
+	funcName = path.Base(funcName)
 	callerFields = append(callerFields, zap.String("func", funcName), zap.String("file", file), zap.Int("line", line))
 	return
 }

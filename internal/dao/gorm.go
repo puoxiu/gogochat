@@ -26,7 +26,7 @@ func init() {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	err = GormDB.AutoMigrate(&model.UserInfo{}) // 自动迁移，如果没有建表，会自动创建对应的表
+	err = GormDB.AutoMigrate(&model.UserInfo{}, &model.GroupInfo{}) // 自动迁移，如果没有建表，会自动创建对应的表
 	if err != nil {
 		log.Fatal(err.Error())
 	}
