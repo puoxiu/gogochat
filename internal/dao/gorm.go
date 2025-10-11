@@ -2,10 +2,10 @@ package dao
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/puoxiu/gogochat/config"
 	"github.com/puoxiu/gogochat/internal/model"
+	"github.com/puoxiu/gogochat/pkg/zlog"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -24,10 +24,10 @@ func init() {
 	var err error
 	GormDB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal(err.Error())
+		zlog.Fatal(err.Error())
 	}
-	err = GormDB.AutoMigrate(&model.UserInfo{}, &model.GroupInfo{}) // 自动迁移，如果没有建表，会自动创建对应的表
+	err = GormDB.AutoMigrate(&model.UserInfo{}, &model.GroupInfo{}, &model.UserContact{}, &model.Session{}, &model.ContactApply{}) // 自动迁移，如果没有建表，会自动创建对应的表
 	if err != nil {
-		log.Fatal(err.Error())
+		zlog.Fatal(err.Error())
 	}
 }

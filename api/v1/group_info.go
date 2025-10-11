@@ -1,56 +1,41 @@
 package v1
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/puoxiu/gogochat/internal/dto/request"
 	"github.com/puoxiu/gogochat/internal/service/gorm"
-	"net/http"
+	"github.com/puoxiu/gogochat/pkg/enum/error_info"
+	"github.com/puoxiu/gogochat/pkg/zlog"
 )
 
 // CreateGroup 创建群聊
 func CreateGroup(c *gin.Context) {
 	var createGroupReq request.CreateGroupRequest
 	if err := c.BindJSON(&createGroupReq); err != nil {
+		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
-			"code":  400,
-			"error": err.Error(),
+			"code":    500,
+			"message": error_info.SYSTEM_ERROR,
 		})
 		return
 	}
-	if err := gorm.GroupInfoService.CreateGroup(createGroupReq); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":  400,
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "create group success",
-	})
+	message, ret := gorm.GroupInfoService.CreateGroup(createGroupReq)
+	JsonBack(c, message, ret, nil)
 }
 
 // LoadMyGroup 获取我创建的群聊
 func LoadMyGroup(c *gin.Context) {
 	var loadMyGroupReq request.OwnlistRequest
 	if err := c.BindJSON(&loadMyGroupReq); err != nil {
+		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
-			"code":  400,
-			"error": err.Error(),
+			"code":    500,
+			"message": error_info.SYSTEM_ERROR,
 		})
 		return
 	}
-	groupList, err := gorm.GroupInfoService.LoadMyGroup(loadMyGroupReq.OwnerId)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code":  400,
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"code":    200,
-		"message": "load my group success",
-		"data":    groupList,
-	})
+	message, groupList, ret := gorm.GroupInfoService.LoadMyGroup(loadMyGroupReq.OwnerId)
+	JsonBack(c, message, ret, groupList)
 }

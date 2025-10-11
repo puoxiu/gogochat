@@ -9,6 +9,7 @@ services:
       MYSQL_ROOT_PASSWORD: "123456"
       MYSQL_DATABASE: "gogochat"     # 对应 mysqlConfig.databaseName（自动创建该库）
       MYSQL_ROOT_HOST: "%"           # 允许所有地址访问（测试环境简化，生产需限制）
+    command: --sql-mode="STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION"
     ports:
       - "3306:3306"
     # 禁用数据持久化（测试用，容器删了数据就没）

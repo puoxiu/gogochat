@@ -48,6 +48,11 @@ func registerRoutes(r *gin.Engine) {
 	r.POST("/contact/getContactInfo", v1.GetContactInfo)         // 获取联系人详情
 	r.POST("/contact/deleteContact", v1.DeleteContact)           // 删除联系人
 	r.POST("/contact/loadMyJoinedGroup", v1.LoadMyJoinedGroup)   // 获取已加入的群组列表
+	r.POST("/contact/applyContact", v1.ApplyContact)
+	r.POST("/contact/getNewContactList", v1.GetNewContactList)
+	r.POST("/contact/passContactApply", v1.PassContactApply)
+	r.POST("/contact/blackContact", v1.BlackContact)
+	r.POST("/contact/cancelBlackContact", v1.CancelBlackContact)
 
 	// 群组相关接口
 	r.POST("/group/createGroup", v1.CreateGroup)   // 创建群组
@@ -58,4 +63,6 @@ func registerRoutes(r *gin.Engine) {
 	r.POST("/session/getUserSessionList", v1.GetUserSessionList) // 获取单聊会话列表
 	r.POST("/session/getGroupSessionList", v1.GetGroupSessionList) // 获取群聊会话列表
 	r.POST("/session/deleteSession", v1.DeleteSession)           // 删除会话
+	r.POST("/session/openSession", v1.OpenSession)
+	r.POST("/session/checkOpenSessionAllowed", v1.CheckOpenSessionAllowed)
 }
