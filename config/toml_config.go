@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/BurntSushi/toml"
 	"log"
+	"time"
 )
 
 type MainConfig struct {
@@ -37,17 +38,40 @@ type LogConfig struct {
 	LogPath string `toml:"logPath"`
 }
 
+type KafkaConfig struct {
+	MessageMode string        `toml:"messageMode"`
+	HostPort    string        `toml:"hostPort"`
+	LoginTopic  string        `toml:"loginTopic"`
+	LogoutTopic string        `toml:"logoutTopic"`
+	ChatTopic   string        `toml:"chatTopic"`
+	Partition   int           `toml:"partition"`
+	Timeout     time.Duration `toml:"timeout"`
+}
+
+type StaticSrcConfig struct {
+	StaticAvatarPath string `toml:"staticAvatarPath"`
+	StaticFilePath   string `toml:"staticFilePath"`
+}
+
 type Config struct {
-	MainConfig     `toml:"mainConfig"`
-	MysqlConfig    `toml:"mysqlConfig"`
-	RedisConfig    `toml:"redisConfig"`
-	AuthCodeConfig `toml:"authCodeConfig"`
-	LogConfig      `toml:"logConfig"`
+	MainConfig      `toml:"mainConfig"`
+	MysqlConfig     `toml:"mysqlConfig"`
+	RedisConfig     `toml:"redisConfig"`
+	AuthCodeConfig  `toml:"authCodeConfig"`
+	LogConfig       `toml:"logConfig"`
+	KafkaConfig     `toml:"kafkaConfig"`
+	StaticSrcConfig `toml:"staticSrcConfig"`
 }
 
 var config *Config
 
 func LoadConfig() error {
+	// 本地部署
+	// if _, err := toml.DecodeFile("F:\\go\\kama-chat-server\\configs\\config_local.toml", config); err != nil {
+	// 	log.Fatal(err.Error())
+	// 	return err
+	// }
+	// Ubuntu22.04云服务器部署
 	if _, err := toml.DecodeFile("/Users/xing/Desktop/test/go-ai/gogochat/config.toml", config); err != nil {
 		log.Fatal(err.Error())
 		return err

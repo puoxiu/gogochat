@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/puoxiu/gogochat/internal/dto/request"
 	"github.com/puoxiu/gogochat/internal/service/gorm"
-	"github.com/puoxiu/gogochat/pkg/enum/error_info"
+	"github.com/puoxiu/gogochat/pkg/constants"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 )
 
@@ -17,7 +17,7 @@ func OpenSession(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
@@ -32,7 +32,7 @@ func GetUserSessionList(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
@@ -40,14 +40,14 @@ func GetUserSessionList(c *gin.Context) {
 	JsonBack(c, message, ret, sessionList)
 }
 
-// GetGroupSessionList 获取用户群聊列表
+// GetGroupSessionList 获取群聊会话列表
 func GetGroupSessionList(c *gin.Context) {
 	var getGroupListReq request.OwnlistRequest
 	if err := c.BindJSON(&getGroupListReq); err != nil {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
@@ -62,11 +62,11 @@ func DeleteSession(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
-	message, ret := gorm.SessionService.DeleteSession(deleteSessionReq.SessionId)
+	message, ret := gorm.SessionService.DeleteSession(deleteSessionReq.OwnerId, deleteSessionReq.SessionId)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -77,7 +77,7 @@ func CheckOpenSessionAllowed(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}

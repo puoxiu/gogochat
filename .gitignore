@@ -3,5 +3,6 @@ logs/
 
 data/
 node/
+web-chat-server/
 
 config.toml

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql:
     image: mysql:8.0
@@ -7,12 +5,13 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: "123456"
-      MYSQL_DATABASE: "gogochat"     # 对应 mysqlConfig.databaseName（自动创建该库）
-      MYSQL_ROOT_HOST: "%"           # 允许所有地址访问（测试环境简化，生产需限制）
+      MYSQL_DATABASE: "gogochat"
+      MYSQL_ROOT_HOST: "%"
     command: --sql-mode="STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION"
     ports:
       - "3306:3306"
-    # 禁用数据持久化（测试用，容器删了数据就没）
+    networks:
+      - gogochat-network
 
   redis:
     image: redis:7.0
@@ -20,5 +19,41 @@ services:
     restart: always
     command: redis-server --requirepass "123456"
     ports:
-      - "6379:6379" 
-    # 禁用数据持久化
+      - "6379:6379"
+    networks:
+      - gogochat-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: gogochat-zookeeper
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - gogochat-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: gogochat-kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # 容器内通信用 kafka:9092，宿主机访问用 localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    networks:
+      - gogochat-network
+
+networks:
+  gogochat-network:
+    driver: bridge

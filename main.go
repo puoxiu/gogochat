@@ -2,67 +2,65 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	v1 "github.com/puoxiu/gogochat/api/v1"
 	"github.com/puoxiu/gogochat/config"
+	"github.com/puoxiu/gogochat/internal/https_server"
+	"github.com/puoxiu/gogochat/internal/service/chat"
+	"github.com/puoxiu/gogochat/internal/service/kafka"
+	myredis "github.com/puoxiu/gogochat/internal/service/redis"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 )
 
 func main() {
-	// 1. 初始化 Gin 引擎（默认包含日志和恢复中间件）
-	r := gin.Default()
-
-	// 2. 配置跨域中间件（允许前端与后端跨域通信）
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // 允许所有源（开发环境）
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, // 允许的 HTTP 方法
-		AllowHeaders:     []string{"Content-Type", "Authorization"}, // 允许的请求头
-		ExposeHeaders:    []string{"X-Custom-Header"}, // 允许前端获取的响应头
-		AllowCredentials: true, // 允许携带 Cookie 等认证信息
-	}))
-
-	// 3. 注册 API 路由（v1 版本接口）
-	registerRoutes(r)
-
-	// 4. 从配置文件获取服务地址和端口
+	// 1. 配置文件类初始化
 	conf := config.GetConfig()
-	serverAddr := fmt.Sprintf("%s:%d", conf.MainConfig.Host, conf.MainConfig.Port)
+	host := conf.MainConfig.Host
+	port := conf.MainConfig.Port
+	kafkaConfig := conf.KafkaConfig
 
-	// 5. 启动 HTTP 服务
-	zlog.Info(fmt.Sprintf("server starting on %s", serverAddr))
-	if err := r.Run(serverAddr); err != nil {
-		zlog.Fatal(fmt.Sprintf("server failed to start: %v", err))
+	if kafkaConfig.MessageMode == "channel" {
+		go chat.ChatServer.Start()
+	} else {
+		kafka.KafkaService.KafkaInit()
+		go chat.KafkaChatServer.Start()
 	}
-}
 
-// registerRoutes 注册所有 API 路由，分离路由配置与主逻辑，提高可读性
-func registerRoutes(r *gin.Engine) {
-	// 用户相关接口
-	r.POST("/login", v1.Login)         // 用户登录
-	r.POST("/register", v1.Register)   // 用户注册
+	go func() {
+		// 使用TLS协议 加密通信
+		// if err := https_server.GE.RunTLS(fmt.Sprintf("%s:%d", host, port), "/etc/ssl/certs/server.crt", "/etc/ssl/private/server.key"); err != nil {
+		// 	zlog.Fatal("server running fault")
+		// 	return
+		// }
 
-	// 联系人相关接口
-	r.POST("/contact/getUserList", v1.GetUserList)               // 获取联系人列表
-	r.POST("/contact/getContactInfo", v1.GetContactInfo)         // 获取联系人详情
-	r.POST("/contact/deleteContact", v1.DeleteContact)           // 删除联系人
-	r.POST("/contact/loadMyJoinedGroup", v1.LoadMyJoinedGroup)   // 获取已加入的群组列表
-	r.POST("/contact/applyContact", v1.ApplyContact)
-	r.POST("/contact/getNewContactList", v1.GetNewContactList)
-	r.POST("/contact/passContactApply", v1.PassContactApply)
-	r.POST("/contact/blackContact", v1.BlackContact)
-	r.POST("/contact/cancelBlackContact", v1.CancelBlackContact)
+		// 开发阶段 未加密通信
+		fmt.Printf("development server running on %s:%d\n", host, port)
+		if err := https_server.GE.Run(fmt.Sprintf("%s:%d", host, port)); err != nil {
+			zlog.Fatal("server running fault")
+			return
+		}
+	}()
 
-	// 群组相关接口
-	r.POST("/group/createGroup", v1.CreateGroup)   // 创建群组
-	r.POST("/group/loadMyGroup", v1.LoadMyGroup)   // 获取我创建的群组列表
+	// 设置信号
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	// 会话相关接口
-	r.POST("/session/openSession", v1.OpenSession)               // 打开会话（单聊/群聊）
-	r.POST("/session/getUserSessionList", v1.GetUserSessionList) // 获取单聊会话列表
-	r.POST("/session/getGroupSessionList", v1.GetGroupSessionList) // 获取群聊会话列表
-	r.POST("/session/deleteSession", v1.DeleteSession)           // 删除会话
-	r.POST("/session/openSession", v1.OpenSession)
-	r.POST("/session/checkOpenSessionAllowed", v1.CheckOpenSessionAllowed)
+	<-quit
+
+	// 回收资源
+	if kafkaConfig.MessageMode == "kafka" {
+		kafka.KafkaService.KafkaClose()
+	}
+	chat.ChatServer.Close()
+	zlog.Info("server closing...")
+
+	// 删除所有的redis键
+	if err := myredis.DeleteAllRedisKeys(); err != nil {
+		zlog.Error(err.Error())
+	} else {
+		zlog.Info("所有Redis键已删除")
+	}
+	zlog.Info("server closed and redis keys deleted")
 }

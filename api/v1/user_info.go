@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/puoxiu/gogochat/internal/dto/request"
 	"github.com/puoxiu/gogochat/internal/service/gorm"
-	"github.com/puoxiu/gogochat/pkg/enum/error_info"
+	"github.com/puoxiu/gogochat/pkg/constants"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 )
 
@@ -18,13 +18,13 @@ func Register(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
 	fmt.Println(registerReq)
-	message, userInfoStr, ret := gorm.UserInfoService.Register(c, registerReq)
-	JsonBack(c, message, ret, userInfoStr)
+	message, userInfo, ret := gorm.UserInfoService.Register(registerReq)
+	JsonBack(c, message, ret, userInfo)
 }
 
 // Login 登录
@@ -34,10 +34,145 @@ func Login(c *gin.Context) {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
-			"message": error_info.SYSTEM_ERROR,
+			"message": constants.SYSTEM_ERROR,
 		})
 		return
 	}
-	message, userInfoStr, ret := gorm.UserInfoService.Login(c, loginReq)
-	JsonBack(c, message, ret, userInfoStr)
+	message, userInfo, ret := gorm.UserInfoService.Login(loginReq)
+	JsonBack(c, message, ret, userInfo)
+}
+
+// SmsLogin 验证码登录
+func SmsLogin(c *gin.Context) {
+	var req request.SmsLoginRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, userInfo, ret := gorm.UserInfoService.SmsLogin(req)
+	JsonBack(c, message, ret, userInfo)
+}
+
+// UpdateUserInfo 修改用户信息
+func UpdateUserInfo(c *gin.Context) {
+	var req request.UpdateUserInfoRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.UpdateUserInfo(req)
+	JsonBack(c, message, ret, nil)
+}
+
+// GetUserInfoList 获取用户列表
+func GetUserInfoList(c *gin.Context) {
+	var req request.GetUserInfoListRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, userList, ret := gorm.UserInfoService.GetUserInfoList(req.OwnerId)
+	JsonBack(c, message, ret, userList)
+}
+
+// AbleUsers 启用用户
+func AbleUsers(c *gin.Context) {
+	var req request.AbleUsersRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.AbleUsers(req.UuidList)
+	JsonBack(c, message, ret, nil)
+}
+
+// DisableUsers 禁用用户
+func DisableUsers(c *gin.Context) {
+	var req request.AbleUsersRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.DisableUsers(req.UuidList)
+	JsonBack(c, message, ret, nil)
+}
+
+// GetUserInfo 获取用户信息
+func GetUserInfo(c *gin.Context) {
+	var req request.GetUserInfoRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, userInfo, ret := gorm.UserInfoService.GetUserInfo(req.Uuid)
+	JsonBack(c, message, ret, userInfo)
+}
+
+// DeleteUsers 删除用户
+func DeleteUsers(c *gin.Context) {
+	var req request.AbleUsersRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.DeleteUsers(req.UuidList)
+	JsonBack(c, message, ret, nil)
+}
+
+// SetAdmin 设置管理员
+func SetAdmin(c *gin.Context) {
+	var req request.AbleUsersRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.SetAdmin(req.UuidList, req.IsAdmin)
+	JsonBack(c, message, ret, nil)
+}
+
+// SendSmsCode 发送短信验证码
+func SendSmsCode(c *gin.Context) {
+	var req request.SendSmsCodeRequest
+	if err := c.BindJSON(&req); err != nil {
+		zlog.Error(err.Error())
+		c.JSON(http.StatusOK, gin.H{
+			"code":    500,
+			"message": constants.SYSTEM_ERROR,
+		})
+		return
+	}
+	message, ret := gorm.UserInfoService.SendSmsCode(req.Telephone)
+	JsonBack(c, message, ret, nil)
 }

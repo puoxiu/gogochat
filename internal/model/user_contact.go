@@ -1,9 +1,8 @@
 package model
 
 import (
-	"time"
-
 	"gorm.io/gorm"
+	"time"
 )
 
 type UserContact struct {
@@ -16,6 +15,7 @@ type UserContact struct {
 	UpdateAt    time.Time      `gorm:"column:update_at;type:datetime;not null;comment:更新时间"`
 	DeletedAt   gorm.DeletedAt `gorm:"column:deleted_at;type:datetime;index;comment:删除时间"`
 }
+
 func (UserContact) TableName() string {
 	return "user_contact"
 }
