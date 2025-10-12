@@ -28,6 +28,8 @@ func main() {
 		go chat.KafkaChatServer.Start()
 	}
 
+	// 注意，使用tls 必须修改一些代码，比如https_server.GE.RunTLS 中的证书路径、前端也对应使用https wss协议 
+	// 注意证书位置
 	go func() {
 		// 使用TLS协议 加密通信
 		// if err := https_server.GE.RunTLS(fmt.Sprintf("%s:%d", host, port), "/etc/ssl/certs/server.crt", "/etc/ssl/private/server.key"); err != nil {

@@ -4,5 +4,7 @@ logs/
 data/
 node/
 web-chat-server/
+static/
+
 
 config.toml
