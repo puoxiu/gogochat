@@ -487,6 +487,13 @@ func (k *KafkaServer) Close() {
 	close(k.Logout)
 }
 
+func (k *KafkaServer) GetClient(id string) (*Client, bool) {
+    k.mutex.Lock()
+    defer k.mutex.Unlock()
+    c, ok := k.Clients[id]
+    return c, ok
+}
+
 func (k *KafkaServer) SendClientToLogin(client *Client) {
 	k.mutex.Lock()
 	k.Login <- client

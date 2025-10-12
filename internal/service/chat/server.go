@@ -490,6 +490,13 @@ func (s *Server) Close() {
 	close(s.Transmit)
 }
 
+func (s *Server) GetClient(id string) (*Client, bool) {
+    s.mutex.Lock()
+    defer s.mutex.Unlock()
+    c, ok := s.Clients[id]
+    return c, ok
+}
+
 func (s *Server) SendClientToLogin(client *Client) {
 	s.mutex.Lock()
 	s.Login <- client

@@ -169,23 +169,36 @@ func (c *Client) Heartbeat() {
 	}
 }
 
+
+
 // ClientLogout 当接受到前端有登出消息时，会调用该函数
 func ClientLogout(clientId string) (string, int) {
 	kafkaConfig := config.GetConfig().KafkaConfig
-	client := ChatServer.Clients[clientId]
-	if client != nil {
-		if kafkaConfig.MessageMode == "channel" {
-			ChatServer.SendClientToLogout(client)
-		} else {
-			KafkaChatServer.SendClientToLogout(client)
-		}
-		if err := client.Conn.Close(); err != nil {
-			zlog.Error(err.Error())
-			return constants.SYSTEM_ERROR, -1
-		}
-		close(client.SendTo)
-		close(client.SendBack)
-		close(client.HeartBeatDone)
+	var (
+		client *Client
+		ok     bool
+	)
+	if kafkaConfig.MessageMode == "channel" {
+		client, ok = ChatServer.GetClient(clientId)
+	} else {
+		client, ok = KafkaChatServer.GetClient(clientId)
 	}
+	if !ok || client == nil {
+		zlog.Warn(fmt.Sprintf("ClientLogout: client %s not found", clientId))
+		return constants.SYSTEM_ERROR, -1
+	}
+
+	if kafkaConfig.MessageMode == "channel" {
+		ChatServer.SendClientToLogout(client)
+	} else {
+		KafkaChatServer.SendClientToLogout(client)
+	}
+	if err := client.Conn.Close(); err != nil {
+		zlog.Error(err.Error())
+		return constants.SYSTEM_ERROR, -1
+	}
+	close(client.SendTo)
+	close(client.SendBack)
+	close(client.HeartBeatDone)
 	return "退出成功", 0
 }
