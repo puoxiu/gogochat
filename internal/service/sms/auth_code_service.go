@@ -2,17 +2,17 @@ package sms
 
 import (
 	"fmt"
-	"strconv"
+	// "strconv"
 	"time"
 
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	dysmsapi20170525 "github.com/alibabacloud-go/dysmsapi-20170525/v4/client"
-	util "github.com/alibabacloud-go/tea-utils/v2/service"
+	// util "github.com/alibabacloud-go/tea-utils/v2/service"
 	"github.com/alibabacloud-go/tea/tea"
 	"github.com/puoxiu/gogochat/config"
 	"github.com/puoxiu/gogochat/internal/service/redis"
 	"github.com/puoxiu/gogochat/pkg/constants"
-	"github.com/puoxiu/gogochat/pkg/random"
+	// "github.com/puoxiu/gogochat/pkg/random"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 )
 
@@ -38,12 +38,63 @@ func createClient() (result *dysmsapi20170525.Client, err error) {
 	return smsClient, err
 }
 
+// func VerificationCode(telephone string) (string, int) {
+// 	client, err := createClient()
+// 	if err != nil {
+// 		zlog.Error(err.Error())
+// 		return constants.SYSTEM_ERROR, -1
+// 	}
+// 	key := "auth_code_" + telephone
+// 	code, err := redis.GetKey(key)
+// 	if err != nil {
+// 		zlog.Error(err.Error())
+// 		return constants.SYSTEM_ERROR, -1
+// 	}
+
+// 	if code != "" {
+// 		// 直接返回，验证码还没过期，用户应该去输验证码
+// 		message := "目前还不能发送验证码，请输入已发送的验证码"
+// 		zlog.Info(message)
+// 		return message, -2
+// 	}
+// 	// 验证码过期，重新生成
+// 	code = strconv.Itoa(random.GetRandomInt(6))
+// 	fmt.Println(code)
+// 	err = redis.SetKeyEx(key, code, time.Minute) // 1分钟有效
+// 	if err != nil {
+// 		zlog.Error(err.Error())
+// 		return constants.SYSTEM_ERROR, -1
+// 	}
+// 	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
+// 		SignName:      tea.String("阿里云短信测试"),
+// 		TemplateCode:  tea.String("SMS_154950909"), // 短信模板
+// 		PhoneNumbers:  tea.String(telephone),
+// 		TemplateParam: tea.String("{\"code\":\"" + code + "\"}"),
+// 	}
+
+// 	runtime := &util.RuntimeOptions{}
+// 	// 目前使用的是测试专用签名，签名必须是“阿里云短信测试”，模板code为“SMS_154950909”
+// 	rsp, err := client.SendSmsWithOptions(sendSmsRequest, runtime)
+// 	if err != nil {
+// 		zlog.Error(err.Error())
+// 		return constants.SYSTEM_ERROR, -1
+// 	}
+// 	zlog.Info(*util.ToJSONString(rsp))
+// 	return "验证码发送成功，请及时在对应电话查收短信", 0
+// }
+
+
+
+// VerificationCode 生成固定验证码（123456），替代真实短信发送
 func VerificationCode(telephone string) (string, int) {
-	client, err := createClient()
-	if err != nil {
-		zlog.Error(err.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
+	// 5. 注释/删除阿里云客户端初始化（不再使用）
+	// client, err := createClient()
+	// if err != nil {
+	// 	zlog.Error(err.Error())
+	// 	return constants.SYSTEM_ERROR, -1
+	// }
+
+	// 保留 Redis 逻辑：防重复发送、验证码有效期（1分钟）
 	key := "auth_code_" + telephone
 	code, err := redis.GetKey(key)
 	if err != nil {
@@ -51,34 +102,24 @@ func VerificationCode(telephone string) (string, int) {
 		return constants.SYSTEM_ERROR, -1
 	}
 
+	// 若验证码未过期，提示用户输入已发送的验证码
 	if code != "" {
-		// 直接返回，验证码还没过期，用户应该去输验证码
-		message := "目前还不能发送验证码，请输入已发送的验证码"
+		message := "目前还不能发送验证码，请输入已发送的验证码（固定验证码：123456）"
 		zlog.Info(message)
 		return message, -2
 	}
-	// 验证码过期，重新生成
-	code = strconv.Itoa(random.GetRandomInt(6))
-	fmt.Println(code)
-	err = redis.SetKeyEx(key, code, time.Minute) // 1分钟有效
+
+	// 6. 核心修改：使用固定验证码（123456），替代随机生成
+	code = "123456" // 固定验证码，测试用
+	fmt.Printf("当前手机号 %s 的验证码：%s（有效期1分钟）\n", telephone, code)
+
+	// 保留 Redis 缓存：将固定验证码存入 Redis，设置1分钟过期
+	err = redis.SetKeyEx(key, code, time.Minute)
 	if err != nil {
 		zlog.Error(err.Error())
 		return constants.SYSTEM_ERROR, -1
-	}
-	sendSmsRequest := &dysmsapi20170525.SendSmsRequest{
-		SignName:      tea.String("阿里云短信测试"),
-		TemplateCode:  tea.String("SMS_154950909"), // 短信模板
-		PhoneNumbers:  tea.String(telephone),
-		TemplateParam: tea.String("{\"code\":\"" + code + "\"}"),
 	}
 
-	runtime := &util.RuntimeOptions{}
-	// 目前使用的是测试专用签名，签名必须是“阿里云短信测试”，模板code为“SMS_154950909”
-	rsp, err := client.SendSmsWithOptions(sendSmsRequest, runtime)
-	if err != nil {
-		zlog.Error(err.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
-	zlog.Info(*util.ToJSONString(rsp))
-	return "验证码发送成功，请及时在对应电话查收短信", 0
+	// 7. 修改返回信息，明确告知是测试用固定验证码
+	return "测试环境：验证码已发送（固定验证码：123456，有效期1分钟）", 0
 }
