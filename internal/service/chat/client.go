@@ -3,9 +3,11 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -30,6 +32,7 @@ type Client struct {
 	Uuid     string				// 客户端uuid
 	SendTo   chan []byte       // 给server端
 	SendBack chan *MessageBack // 给前端
+	HeartBeatDone     chan struct{} // 用于退出心跳协程
 }
 
 var upgrader = websocket.Upgrader{
@@ -48,6 +51,14 @@ var messageMode = config.GetConfig().KafkaConfig.MessageMode
 // 读取websocket消息并发送给send通道
 func (c *Client) Read() {
 	zlog.Info("ws read goroutine start")
+	defer func() {
+	    if r := recover(); r != nil {
+        	zlog.Error(fmt.Sprintf("panic in Read(): %v", r))
+    	}
+		// 无论是前端主动断开、网络错误还是解析失败，Read 协程退出时都清理资源
+		ClientLogout(c.Uuid)
+	}()
+
 	for {
 		// 阻塞有一定隐患，因为下面要处理缓冲的逻辑，但是可以先不做优化，问题不大
 		_, jsonMessage, err := c.Conn.ReadMessage() // 阻塞状态
@@ -121,6 +132,7 @@ func NewClientInit(c *gin.Context, clientId string) {
 		Uuid:     clientId,
 		SendTo:   make(chan []byte, constants.CHANNEL_SIZE),
 		SendBack: make(chan *MessageBack, constants.CHANNEL_SIZE),
+		HeartBeatDone: make(chan struct{}),
 	}
 	if kafkaConfig.MessageMode == "channel" {
 		ChatServer.SendClientToLogin(client)
@@ -130,6 +142,31 @@ func NewClientInit(c *gin.Context, clientId string) {
 	go client.Read()
 	go client.Write()
 	zlog.Info("ws连接成功")
+
+	// 心跳机制
+	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	conn.SetPongHandler(func(appData string) error {
+		conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		return nil
+	})
+	go client.Heartbeat()
+}
+
+// Heartbeat 启动定时发送Ping的协程
+func (c *Client) Heartbeat() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			if err := c.Conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				ClientLogout(c.Uuid)
+				return
+			}
+		case <-c.HeartBeatDone:
+			return
+		}
+	}
 }
 
 // ClientLogout 当接受到前端有登出消息时，会调用该函数
@@ -148,6 +185,7 @@ func ClientLogout(clientId string) (string, int) {
 		}
 		close(client.SendTo)
 		close(client.SendBack)
+		close(client.HeartBeatDone)
 	}
 	return "退出成功", 0
 }
