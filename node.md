@@ -30,3 +30,5 @@ flowchart TD
     read -->|失败| logError2[打印WebSocket读取错误日志]
     logError2 --> exit([退出协程])
 ```
+
+kafka-topics --create --bootstrap-server localhost:9092  --topic chat_message --partitions 1 --replication-factor 1
