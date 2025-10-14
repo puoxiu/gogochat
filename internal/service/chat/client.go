@@ -4,7 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	// "log"
+
 	"net/http"
 	"strconv"
 	"time"
@@ -71,7 +72,6 @@ func (c *Client) Read() {
 			if err := json.Unmarshal(jsonMessage, &message); err != nil {
 				zlog.Error(err.Error())
 			}
-			log.Println("接受到消息为: ", jsonMessage)
 			if messageMode == "channel" {
 				// 如果server的转发channel没满，先把sendto中的给transmit
 				for len(ChatServer.Transmit) < constants.CHANNEL_SIZE && len(c.SendTo) > 0 {
@@ -113,7 +113,6 @@ func (c *Client) Write() {
 			zlog.Error(err.Error())
 			return // 直接断开websocket
 		}
-		// log.Println("已发送消息：", messageBack.Message)
 		// 说明顺利发送，修改状态为已发送
 		if res := dao.GormDB.Model(&model.Message{}).Where("uuid = ?", messageBack.Uuid).Update("status", message_status_enum.Sent); res.Error != nil {
 			zlog.Error(res.Error.Error())
@@ -201,5 +200,7 @@ func ClientLogout(clientId string) (string, int) {
 	close(client.SendTo)
 	close(client.SendBack)
 	close(client.HeartBeatDone)
+
+	// log.Printf("ClientLogout退出啦 ：%s logout", clientId)
 	return "退出成功", 0
 }

@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	// "log"
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/go-redis/redis/v8"
 
 	"github.com/puoxiu/gogochat/internal/dao"
@@ -53,7 +54,7 @@ func normalizePath(path string) string {
 	}
 	staticIndex := strings.Index(path, "/static/")
 	if staticIndex < 0 {
-		log.Println(path)
+		// log.Println(path)
 		zlog.Error("路径不合法")
 	}
 	// 返回从 "/static/" 开始的部分
@@ -90,6 +91,7 @@ func (s *Server) Start() {
 				if err := client.Conn.WriteMessage(websocket.TextMessage, []byte("已退出登录")); err != nil {
 					zlog.Error(err.Error())
 				}
+				// log.Printf("检测到用户退出啦 ：%s logout", client.Uuid)
 			}
 
 		case data := <-s.Transmit:
@@ -145,7 +147,7 @@ func (s *Server) Start() {
 						if err != nil {
 							zlog.Error(err.Error())
 						}
-						log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
+						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
 						var messageBack = &MessageBack{
 							Message: jsonMessage,
 							Uuid:    message.Uuid,
@@ -206,7 +208,7 @@ func (s *Server) Start() {
 						if err != nil {
 							zlog.Error(err.Error())
 						}
-						log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
+						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
 						var messageBack = &MessageBack{
 							Message: jsonMessage,
 							Uuid:    message.Uuid,
@@ -301,7 +303,7 @@ func (s *Server) Start() {
 						if err != nil {
 							zlog.Error(err.Error())
 						}
-						log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
+						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
 						var messageBack = &MessageBack{
 							Message: jsonMessage,
 							Uuid:    message.Uuid,
@@ -358,7 +360,7 @@ func (s *Server) Start() {
 						if err != nil {
 							zlog.Error(err.Error())
 						}
-						log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
+						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
 						var messageBack = &MessageBack{
 							Message: jsonMessage,
 							Uuid:    message.Uuid,
@@ -461,7 +463,7 @@ func (s *Server) Start() {
 							zlog.Error(err.Error())
 						}
 						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
-						log.Println("返回的消息为：", messageRsp)
+						// log.Println("返回的消息为：", messageRsp)
 						var messageBack = &MessageBack{
 							Message: jsonMessage,
 							Uuid:    message.Uuid,
