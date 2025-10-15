@@ -27,10 +27,7 @@ func init() {
 		zlog.Fatal(err.Error())
 	}
 	err = GormDB.AutoMigrate(
-		&model.UserInfo{}, 
-		&model.GroupInfo{}, 
-		&model.UserContact{},
-		&model.ContactApply{}, 
+		&model.Session{}, 
 	) // 自动迁移，如果没有建表，会自动创建对应的表
 
 	if err != nil {

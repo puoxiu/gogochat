@@ -634,3 +634,21 @@ func (u *userContactService) BlackApply(ownerId string, contactId string) (strin
 	}
 	return "已拉黑该申请", 0
 }
+
+// GetUserContact 查询好友关系 add for rpc
+func (u *userContactService) GetUserContact(userId string, contactId string) (string, respond.GetUserContactResponse, int) {
+	var contact model.UserContact
+	if res := dao.GormDB.Where("user_id = ? AND contact_id = ?", userId, contactId).First(&contact); res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return "该好友关系不存在", respond.GetUserContactResponse{}, 0
+		}
+		zlog.Error(res.Error.Error())
+		return constants.SYSTEM_ERROR, respond.GetUserContactResponse{}, -1
+	}
+	return "查询好友关系成功", respond.GetUserContactResponse{
+		UserId:      contact.UserId,
+		ContactId:   contact.ContactId,
+		ContactType: contact.ContactType,
+		Status:      contact.Status,
+	}, 1
+}
