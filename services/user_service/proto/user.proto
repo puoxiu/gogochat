@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "./proto/user";
+
+// 用户信息请求
+message GetUserInfoRequest {
+  string uuid = 1; // 用户唯一标识
+}
+
+// 用户信息响应
+message GetUserInfoResponse {
+  string uuid = 1;
+  string nickname = 2;
+  string telephone = 3;
+  string avatar = 4;
+  string email = 5;
+  int32 gender = 6; // 0:男, 1:女
+  string birthday = 7;
+  string signature = 8;
+  string created_at = 9;
+  int32 is_admin = 10; // 0:非管理员, 1:管理员
+  int32 status = 11; // 0:正常, 1:禁用
+  string message = 12; // 响应信息
+  int32 code = 13; // 状态码(0:成功, -1:系统错误, -2:业务错误)
+}
+
+// 用户服务
+service UserService {
+  // 获取用户信息
+  rpc GetUserInfo(GetUserInfoRequest) returns (GetUserInfoResponse);
+}
