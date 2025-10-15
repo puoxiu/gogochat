@@ -1,5 +1,12 @@
 # 微服务拆分记录
 
+## 目标
+user
+session
+chat
+
+
+
 ## 拆分user服务
 
 ### todo

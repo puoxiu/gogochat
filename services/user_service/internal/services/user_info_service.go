@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	myredis "github.com/puoxiu/gogochat/internal/service/redis"
+	"github.com/puoxiu/gogochat/common/cache"
 	"github.com/puoxiu/gogochat/internal/service/sms"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dto/request"
 
@@ -106,7 +106,7 @@ func (u *userInfoService) SmsLogin(req request.SmsLoginRequest) (string, *respon
 	}
 
 	key := "auth_code_" + req.Telephone
-	code, err := myredis.GetKey(key)
+	code, err := cache.GetGlobalCache().GetKey(key)
 	if err != nil {
 		zlog.Error(err.Error())
 		return constants.SYSTEM_ERROR, nil, -1
@@ -116,7 +116,7 @@ func (u *userInfoService) SmsLogin(req request.SmsLoginRequest) (string, *respon
 		zlog.Info(message)
 		return message, nil, -2
 	} else {
-		if err := myredis.DelKeyIfExists(key); err != nil {
+		if err := cache.GetGlobalCache().DelKeyIfExists(key); err != nil {
 			zlog.Error(err.Error())
 			return constants.SYSTEM_ERROR, nil, -1
 		}
@@ -164,7 +164,7 @@ func (u *userInfoService) checkTelephoneExist(telephone string) (string, int) {
 // Register 注册，返回(message, register_respond_string, error)
 func (u *userInfoService) Register(registerReq request.RegisterRequest) (string, *respond.RegisterRespond, int) {
 	key := "auth_code_" + registerReq.Telephone
-	code, err := myredis.GetKey(key)
+	code, err := cache.GetGlobalCache().GetKey(key)
 	if err != nil {
 		zlog.Error(err.Error())
 		return constants.SYSTEM_ERROR, nil, -1
@@ -174,7 +174,7 @@ func (u *userInfoService) Register(registerReq request.RegisterRequest) (string,
 		zlog.Info(message)
 		return message, nil, -2
 	} else {
-		if err := myredis.DelKeyIfExists(key); err != nil {
+		if err := cache.GetGlobalCache().DelKeyIfExists(key); err != nil {
 			zlog.Error(err.Error())
 			return constants.SYSTEM_ERROR, nil, -1
 		}
@@ -256,7 +256,7 @@ func (u *userInfoService) UpdateUserInfo(updateReq request.UpdateUserInfoRequest
 		zlog.Error(res.Error.Error())
 		return constants.SYSTEM_ERROR, -1
 	}
-	//if err := myredis.DelKeysWithPattern("user_info_" + updateReq.Uuid); err != nil {
+	//if err := cache.GetGlobalCache().DelKeysWithPattern("user_info_" + updateReq.Uuid); err != nil {
 	//	zlog.Error(err.Error())
 	//}
 	return "修改用户信息成功", 0
@@ -307,7 +307,7 @@ func (u *userInfoService) AbleUsers(uuidList []string) (string, int) {
 		}
 	}
 	// 删除所有"contact_user_list"开头的key
-	//if err := myredis.DelKeysWithPrefix("contact_user_list"); err != nil {
+	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
 	//	zlog.Error(err.Error())
 	//}
 	return "启用用户成功", 0
@@ -344,7 +344,7 @@ func (u *userInfoService) DisableUsers(uuidList []string) (string, int) {
 		}
 	}
 	// 删除所有"contact_user_list"开头的key
-	//if err := myredis.DelKeysWithPrefix("contact_user_list"); err != nil {
+	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
 	//	zlog.Error(err.Error())
 	//}
 	return "禁用用户成功", 0
@@ -431,7 +431,7 @@ func (u *userInfoService) DeleteUsers(uuidList []string) (string, int) {
 
 	}
 	// 删除所有"contact_user_list"开头的key
-	//if err := myredis.DelKeysWithPrefix("contact_user_list"); err != nil {
+	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
 	//	zlog.Error(err.Error())
 	//}
 	return "删除用户成功", 0
@@ -441,7 +441,7 @@ func (u *userInfoService) DeleteUsers(uuidList []string) (string, int) {
 func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfoRespond, int) {
 	// redis
 	zlog.Info(uuid)
-	rspString, err := myredis.GetKeyNilIsErr("user_info_" + uuid)
+	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("user_info_" + uuid)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			zlog.Info(err.Error())
@@ -467,7 +467,7 @@ func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfo
 			//if err != nil {
 			//	zlog.Error(err.Error())
 			//}
-			//if err := myredis.SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Minute); err != nil {
+			//if err := cache.GetGlobalCache().SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Minute); err != nil {
 			//	zlog.Error(err.Error())
 			//}
 			return "获取用户信息成功", &rsp, 0

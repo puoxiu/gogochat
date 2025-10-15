@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/puoxiu/gogochat/common/cache"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 	"github.com/puoxiu/gogochat/services/user_service/internal/config"
 	"github.com/puoxiu/gogochat/services/user_service/internal/grpc_server"
@@ -20,6 +22,20 @@ func main() {
 		zlog.Fatal(fmt.Sprintf("初始化配置失败: %v", err))
 	}
 
+	// 初始化缓存
+	redisCache := cache.NewRedisCache(
+		context.Background(),
+		config.AppConfig.RedisConfig.Host,
+		config.AppConfig.RedisConfig.Port,
+		config.AppConfig.RedisConfig.Password,
+		config.AppConfig.RedisConfig.DB,
+	)
+	if redisCache == nil {
+		zlog.Fatal("初始化 Redis 缓存失败")
+	}
+	cache.Init(redisCache)
+
+	
 	// 启动 gRPC 服务
 	go func() {
 		addr := fmt.Sprintf(":%d", config.AppConfig.MainConfig.GrpcPort)
