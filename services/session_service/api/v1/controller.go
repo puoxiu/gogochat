@@ -5,9 +5,8 @@ import (
 	"net/http"
 )
 
-func JsonBack(c *gin.Context, message string, code int, data interface{}) {
-	if code == 1 {
-		// 成功
+func JsonBack(c *gin.Context, message string, ret int, data interface{}) {
+	if ret == 0 {
 		if data != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"code":    200,
@@ -20,22 +19,15 @@ func JsonBack(c *gin.Context, message string, code int, data interface{}) {
 				"message": message,
 			})
 		}
-	} 
-	
-	if code == 0 {
-		// 请求数据出错/不存在
+	} else if ret == -2 {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    400,
 			"message": message,
 		})
-	}
-
-	if code == -1 {
-		// 服务端错误
+	} else if ret == -1 {
 		c.JSON(http.StatusOK, gin.H{
 			"code":    500,
 			"message": message,
 		})
-		return
 	}
 }

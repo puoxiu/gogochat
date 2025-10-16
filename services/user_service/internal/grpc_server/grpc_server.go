@@ -2,7 +2,6 @@ package grpc_server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/puoxiu/gogochat/services/user_service/internal/services"
 	user "github.com/puoxiu/gogochat/services/user_service/proto"
@@ -13,7 +12,6 @@ type UserGrpcServer struct {
 }
 
 func (s *UserGrpcServer) GetUserInfo(ctx context.Context, req *user.GetUserInfoRequest) (*user.GetUserInfoResponse, error) {
-	fmt.Printf("GetUserInfo req====================: %v\n", req)
 	msg, rsp, code := services.UserInfoService.GetUserInfo(req.Uuid)
 	if code != 1 {
 		return &user.GetUserInfoResponse{
@@ -41,8 +39,8 @@ func (s *UserGrpcServer) GetUserInfo(ctx context.Context, req *user.GetUserInfoR
 func (s *UserGrpcServer) GetUserContact(ctx context.Context, req *user.GetUserContactRequest) (*user.GetUserContactResponse, error) {
 	msg, rsp, code := services.UserContactService.GetUserContact(req.UserId, req.ContactId)
 
-	// code = 1 表示查询成功; code = -1 表示查询失败; code = 0 查询正常 但是数据不存在(业务错误)
-	if code != 1 {
+	// code = 0 表示查询成功; code = -1 表示查询失败; code = -2 查询正常 但是数据不存在(业务错误)
+	if code != 0 {
 		return &user.GetUserContactResponse{
 			Code:    int32(code),
 			Message: msg,
@@ -50,7 +48,7 @@ func (s *UserGrpcServer) GetUserContact(ctx context.Context, req *user.GetUserCo
 		}, nil
 	}
 	return &user.GetUserContactResponse{
-		Code:      1,
+		Code:      0,
 		Message:   msg,
 		Contact: &user.FriendContact{
 			UserId:     rsp.UserId,

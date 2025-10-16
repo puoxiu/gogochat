@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -12,6 +13,11 @@ import (
 	"github.com/puoxiu/gogochat/pkg/zlog"
 	"github.com/puoxiu/gogochat/services/session_service/internal/config"
 	"github.com/puoxiu/gogochat/services/session_service/internal/http_server"
+	session "github.com/puoxiu/gogochat/services/session_service/proto"
+	"github.com/puoxiu/gogochat/services/session_service/internal/grpc_server"
+
+
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -33,12 +39,28 @@ func main() {
 	cache.Init(redisCache)
 
 	// 连接RPC服务-地址先硬编码 之后可以用etcd等服务发现
+	// user rpc 客户端
 	userGrpcAddr := fmt.Sprintf("%s:%d", "127.0.0.1", 9001)
 	if err := clients.InitGlobalUserClient(userGrpcAddr); err != nil {
 		zlog.Fatal(fmt.Sprintf("初始化user rpc客户端失败: %v", err))
 	}
 
 	// 启动seession gRPC 服务
+	go func() {
+		addr := fmt.Sprintf(":%d", config.AppConfig.MainConfig.GrpcPort)
+		lis, err := net.Listen("tcp", addr)
+		if err != nil {
+			zlog.Fatal(fmt.Sprintf("启动seession gRPC 服务失败: %v", err))
+		}
+
+		s := grpc.NewServer()
+		session.RegisterSessionServiceServer(s, &grpc_server.SessionGrpcServer{})
+		zlog.Info(fmt.Sprintf("seession gRPC 服务启动成功，端口：%s", addr))
+
+		if err := s.Serve(lis); err != nil {
+			zlog.Fatal(fmt.Sprintf("seession gRPC 服务运行失败: %v", err))
+		}
+	}()
 
 	// 启动 HTTP 服务
 	go func() {

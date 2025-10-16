@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-redis/redis/v8"
 	"github.com/puoxiu/gogochat/common/cache"
+	"github.com/puoxiu/gogochat/common/clients"
 	"github.com/puoxiu/gogochat/internal/service/sms"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dao"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dto/request"
@@ -60,17 +61,15 @@ func (u *userInfoService) Login(loginReq request.LoginRequest) (string, *respond
 	res := dao.GormDB.First(&user, "telephone = ?", loginReq.Telephone)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			message := "用户不存在，请注册"
-			zlog.Error(message)
-			return message, nil, -2
+			zlog.Warn(fmt.Sprintf("用户不存在: telephone=%s", loginReq.Telephone))
+			return "用户不存在，请注册", nil, -2
 		}
 		zlog.Error(res.Error.Error())
 		return constants.SYSTEM_ERROR, nil, -1
 	}
 	if user.Password != password {
-		message := "密码不正确，请重试"
-		zlog.Error(message)
-		return message, nil, -2
+		zlog.Warn(fmt.Sprintf("密码不正确: telephone=%s", loginReq.Telephone))
+		return "密码不正确，请重试", nil, -2
 	}
 
 	loginRsp := &respond.LoginRespond{
@@ -97,13 +96,12 @@ func (u *userInfoService) SmsLogin(req request.SmsLoginRequest) (string, *respon
 	res := dao.GormDB.First(&user, "telephone = ?", req.Telephone)
 	if res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			message := "用户不存在，请注册"
-			zlog.Error(message)
-			return message, nil, -2
+			zlog.Warn(fmt.Sprintf("用户不存在: telephone=%s", req.Telephone))
+			return "用户不存在，请注册", nil, -2
 		}
 		zlog.Error(res.Error.Error())
 		return constants.SYSTEM_ERROR, nil, -1
-	}
+	} 
 
 	key := "auth_code_" + req.Telephone
 	code, err := cache.GetGlobalCache().GetKey(key)
@@ -112,9 +110,8 @@ func (u *userInfoService) SmsLogin(req request.SmsLoginRequest) (string, *respon
 		return constants.SYSTEM_ERROR, nil, -1
 	}
 	if code != req.SmsCode {
-		message := "验证码不正确，请重试"
-		zlog.Info(message)
-		return message, nil, -2
+		zlog.Warn(fmt.Sprintf("验证码不正确: telephone=%s", req.Telephone))
+		return "验证码不正确，请重试", nil, -2
 	} else {
 		if err := cache.GetGlobalCache().DelKeyIfExists(key); err != nil {
 			zlog.Error(err.Error())
@@ -151,14 +148,14 @@ func (u *userInfoService) checkTelephoneExist(telephone string) (string, int) {
 	// gorm默认排除软删除，所以翻译过来的select语句是SELECT * FROM `user_info` WHERE telephone = '18089596095' AND `user_info`.`deleted_at` IS NULL ORDER BY `user_info`.`id` LIMIT 1
 	if res := dao.GormDB.Where("telephone = ?", telephone).First(&user); res.Error != nil {
 		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-			zlog.Info("该电话不存在，可以注册")
-			return "", 0
+			zlog.Warn(fmt.Sprintf("手机号不存在: telephone=%s", telephone))
+			return "", -2
 		}
 		zlog.Error(res.Error.Error())
 		return constants.SYSTEM_ERROR, -1
 	}
-	zlog.Info("该电话已经存在，注册失败")
-	return "该电话已经存在，注册失败", -2
+	zlog.Info(fmt.Sprintf("手机号查找成功: telephone=%s", telephone))
+	return "该电话已经存在", 0
 }
 
 // Register 注册，返回(message, register_respond_string, error)
@@ -170,16 +167,14 @@ func (u *userInfoService) Register(registerReq request.RegisterRequest) (string,
 		return constants.SYSTEM_ERROR, nil, -1
 	}
 	if code != registerReq.SmsCode {
-		message := "验证码不正确，请重试"
-		zlog.Info(message)
-		return message, nil, -2
+		zlog.Warn(fmt.Sprintf("验证码不正确: telephone=%s", registerReq.Telephone))
+		return "验证码不正确，请重试", nil, -2
 	} else {
 		if err := cache.GetGlobalCache().DelKeyIfExists(key); err != nil {
 			zlog.Error(err.Error())
 			return constants.SYSTEM_ERROR, nil, -1
 		}
 	}
-	// 不用校验手机号，前端校验
 	// 判断电话是否已经被注册过了
 	message, ret := u.checkTelephoneExist(registerReq.Telephone)
 	if ret != 0 {
@@ -256,9 +251,9 @@ func (u *userInfoService) UpdateUserInfo(updateReq request.UpdateUserInfoRequest
 		zlog.Error(res.Error.Error())
 		return constants.SYSTEM_ERROR, -1
 	}
-	//if err := cache.GetGlobalCache().DelKeysWithPattern("user_info_" + updateReq.Uuid); err != nil {
-	//	zlog.Error(err.Error())
-	//}
+	if err := cache.GetGlobalCache().DelKeysWithPattern("user_info_" + updateReq.Uuid); err != nil {
+		zlog.Error(err.Error())
+	}
 	return "修改用户信息成功", 0
 }
 
@@ -291,151 +286,130 @@ func (u *userInfoService) GetUserInfoList(ownerId string) (string, []respond.Get
 	return "获取用户列表成功", rsp, 0
 }
 
-// AbleUsers 启用用户
-// 用户是否启用禁用需要实时更新contact_user_list状态，所以redis的contact_user_list需要删除
+// AbleUsers 启用用户--解封
 func (u *userInfoService) AbleUsers(uuidList []string) (string, int) {
-	var users []model.UserInfo
-	if res := dao.GormDB.Model(model.UserInfo{}).Where("uuid in (?)", uuidList).Find(&users); res.Error != nil {
-		zlog.Error(res.Error.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
-	for _, user := range users {
-		user.Status = user_status_enum.NORMAL
-		if res := dao.GormDB.Save(&user); res.Error != nil {
-			zlog.Error(res.Error.Error())
-			return constants.SYSTEM_ERROR, -1
+    res := dao.GormDB.Model(model.UserInfo{}).
+        Where("uuid in (?)", uuidList).
+        Update("status", user_status_enum.NORMAL)
+    if res.Error != nil {
+        zlog.Error("批量启用用户失败: " + res.Error.Error())
+        return constants.SYSTEM_ERROR, -1
+    }
+    if res.RowsAffected == 0 {
+        zlog.Info("未找到可启用的用户")
+        return "未找到可启用的用户", -2
+    }
+    zlog.Info(fmt.Sprintf("成功启用 %d 个用户", res.RowsAffected))
+
+	// todo cache
+	for _, uuid := range uuidList {
+		if err := cache.GetGlobalCache().DelKeyIfExists("contact_user_list_" + uuid); err != nil {
+			zlog.Warn(fmt.Sprintf("清理用户自身联系人缓存失败: uuid=%s, err=%v", uuid, err))
+		}
+		if err := cache.GetGlobalCache().DelKeyIfExists("user_info_" + uuid); err != nil {
+			zlog.Warn(fmt.Sprintf("清理用户自身信息缓存失败: uuid=%s, err=%v", uuid, err))
 		}
 	}
-	// 删除所有"contact_user_list"开头的key
-	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
-	//	zlog.Error(err.Error())
-	//}
-	return "启用用户成功", 0
+
+	return fmt.Sprintf("成功启用 %d 个用户", res.RowsAffected), 0
 }
 
-// DisableUsers 禁用用户
-// 用户是否启用禁用需要实时更新contact_user_list状态，所以redis的contact_user_list需要删除
+// DisableUsers 禁用用户--封号
 func (u *userInfoService) DisableUsers(uuidList []string) (string, int) {
-	var users []model.UserInfo
-	if res := dao.GormDB.Model(model.UserInfo{}).Where("uuid in (?)", uuidList).Find(&users); res.Error != nil {
-		zlog.Error(res.Error.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
-	for _, user := range users {
-		user.Status = user_status_enum.DISABLE
-		if res := dao.GormDB.Save(&user); res.Error != nil {
-			zlog.Error(res.Error.Error())
-			return constants.SYSTEM_ERROR, -1
-		}
+    res := dao.GormDB.Model(model.UserInfo{}).
+        Where("uuid in (?)", uuidList).
+        Update("status", user_status_enum.DISABLE)
+    
+	if res.Error != nil {
+        zlog.Error("批量禁用用户失败: " + res.Error.Error())
+        return constants.SYSTEM_ERROR, -1
+    }
+    if res.RowsAffected == 0 {
+        zlog.Info("未找到可禁用的用户")
+        return "未找到可禁用的用户", -2
+    }
+	zlog.Info(fmt.Sprintf("成功禁用 %d 个用户", res.RowsAffected))
 
-		// 删除该用户所有会话 todo 这里需要rpc调用session服务删除会话
-		// var sessionList []model.Session
-		// if res := dao.GormDB.Where("send_id = ? or receive_id = ?", user.Uuid, user.Uuid).Find(&sessionList); res.Error != nil {
-		// 	zlog.Error(res.Error.Error())
-		// 	return constants.SYSTEM_ERROR, -1
-		// }
-		// for _, session := range sessionList {
-		// 	var deletedAt gorm.DeletedAt
-		// 	deletedAt.Time = time.Now()
-		// 	deletedAt.Valid = true
-		// 	session.DeletedAt = deletedAt
-		// 	if res := dao.GormDB.Save(&session); res.Error != nil {
-		// 		zlog.Error(res.Error.Error())
-		// 		return constants.SYSTEM_ERROR, -1
-		// 	}
-		// }
+	// todo cache
+	for _, uuid := range uuidList {
+		if err := cache.GetGlobalCache().DelKeyIfExists("contact_user_list_" + uuid); err != nil {
+			zlog.Warn(fmt.Sprintf("清理用户自身联系人缓存失败: uuid=%s, err=%v", uuid, err))
+		}
+		if err := cache.GetGlobalCache().DelKeyIfExists("user_info_" + uuid); err != nil {
+			zlog.Warn(fmt.Sprintf("清理用户自身信息缓存失败: uuid=%s, err=%v", uuid, err))
+		}
 	}
-	// 删除所有"contact_user_list"开头的key
-	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
-	//	zlog.Error(err.Error())
-	//}
-	return "禁用用户成功", 0
+
+	return fmt.Sprintf("成功禁用 %d 个用户", res.RowsAffected), 0
 }
 
 // DeleteUsers 删除用户
-// 用户是否启用禁用需要实时更新contact_user_list状态，所以redis的contact_user_list需要删除
-func (u *userInfoService) DeleteUsers(uuidList []string) (string, int) {
-	var users []model.UserInfo
-	if res := dao.GormDB.Model(model.UserInfo{}).Where("uuid in (?)", uuidList).Find(&users); res.Error != nil {
-		zlog.Error(res.Error.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
-	for _, user := range users {
-		user.DeletedAt.Valid = true
-		user.DeletedAt.Time = time.Now()
-		if res := dao.GormDB.Save(&user); res.Error != nil {
-			zlog.Error(res.Error.Error())
+func (u *userInfoService) DeleteUser(uuid string) (string, int) {
+	//软删除用户
+	res := dao.GormDB.Delete(&model.UserInfo{}, "uuid = ?", uuid)
+	if res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			zlog.Info(res.Error.Error())
+			return "未找到可删除的用户", -2
+		} else {
+			zlog.Error(fmt.Sprintf("删除用户数据库失败: uuid=%s, err=%v", uuid, res.Error))
 			return constants.SYSTEM_ERROR, -1
 		}
-
-		// 删除该用户所有会话 todo 这里需要rpc调用session服务删除会话
-		// var sessionList []model.Session
-		// if res := dao.GormDB.Where("send_id = ? or receive_id = ?", user.Uuid, user.Uuid).Find(&sessionList); res.Error != nil {
-		// 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		// 		zlog.Info(res.Error.Error())
-		// 	} else {
-		// 		zlog.Error(res.Error.Error())
-		// 		return constants.SYSTEM_ERROR, -1
-		// 	}
-		// }
-		// for _, session := range sessionList {
-		// 	var deletedAt gorm.DeletedAt
-		// 	deletedAt.Time = time.Now()
-		// 	deletedAt.Valid = true
-		// 	session.DeletedAt = deletedAt
-		// 	if res := dao.GormDB.Save(&session); res.Error != nil {
-		// 		zlog.Error(res.Error.Error())
-		// 		return constants.SYSTEM_ERROR, -1
-		// 	}
-		// }
-
-		// 删除联系人
-		var contactList []model.UserContact
-		if res := dao.GormDB.Where("user_id = ? or contact_id = ?", user.Uuid, user.Uuid).Find(&contactList); res.Error != nil {
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				zlog.Info(res.Error.Error())
-			} else {
-				zlog.Error(res.Error.Error())
-				return constants.SYSTEM_ERROR, -1
-			}
-		}
-		for _, contact := range contactList {
-			var deletedAt gorm.DeletedAt
-			deletedAt.Time = time.Now()
-			deletedAt.Valid = true
-			contact.DeletedAt = deletedAt
-			if res := dao.GormDB.Save(&contact); res.Error != nil {
-				zlog.Error(res.Error.Error())
-				return constants.SYSTEM_ERROR, -1
-			}
-		}
-
-		// 删除申请记录
-		var applyList []model.ContactApply
-		if res := dao.GormDB.Where("user_id = ? or contact_id = ?", user.Uuid, user.Uuid).Find(&applyList); res.Error != nil {
-			if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-				zlog.Info(res.Error.Error())
-			} else {
-				zlog.Error(res.Error.Error())
-				return constants.SYSTEM_ERROR, -1
-			}
-		}
-		for _, apply := range applyList {
-			var deletedAt gorm.DeletedAt
-			deletedAt.Time = time.Now()
-			deletedAt.Valid = true
-			apply.DeletedAt = deletedAt
-			if res := dao.GormDB.Save(&apply); res.Error != nil {
-				zlog.Error(res.Error.Error())
-				return constants.SYSTEM_ERROR, -1
-			}
-		}
-
 	}
-	// 删除所有"contact_user_list"开头的key
-	//if err := cache.GetGlobalCache().DelKeysWithPrefix("contact_user_list"); err != nil {
-	//	zlog.Error(err.Error())
-	//}
+	if res.RowsAffected == 0 {
+		zlog.Info("未找到可删除的用户")
+		return "未找到可删除的用户", -2
+	}
+	zlog.Info(fmt.Sprintf("用户软删除成功:uuid=%s", uuid))
+
+
+	// 删除联系人
+	var contactList []model.UserContact
+	if res := dao.GormDB.Where("user_id = ?", uuid).Find(&contactList); res.Error != nil {
+		zlog.Error(fmt.Sprintf("联系人查询失败: uuid=%s, err=%v", uuid, res.Error))
+		return constants.SYSTEM_ERROR, -1
+	}
+	// 批量软删除联系人（避免循环单条删除，提升效率）
+	if len(contactList) > 0 {
+		IDs := make([]int64, 0, len(contactList))
+		for _, contact := range contactList {
+			IDs = append(IDs, contact.Id)
+		}
+		contactDelRes := dao.GormDB.Delete(&model.UserContact{}, "id in (?)", IDs)
+		if contactDelRes.Error != nil {
+			zlog.Error(fmt.Sprintf("联系人批量软删除失败:uuid=%s, err=%v", uuid, contactDelRes.Error))
+			return constants.SYSTEM_ERROR, -1
+		}
+		zlog.Info(fmt.Sprintf("成功删除 %d 个联系人", contactDelRes.RowsAffected))
+	} else {
+		zlog.Info(fmt.Sprintf("无关联联系人可删除:uuid=%s", uuid))
+	}
+
+	// 软删除会话--调用rpc
+	sessionClient, err := clients.GetGlobalSessionClient()
+	if err != nil {
+		zlog.Error(fmt.Sprintf("获取会话服务客户端失败: err=%v", err))
+		return constants.SYSTEM_ERROR, -1
+	}
+	for _, contact := range contactList {
+		resp1 := sessionClient.DeleteSessionsByUsers(contact.UserId, contact.ContactId)
+		if resp1.Code != 0 {
+			zlog.Warn(fmt.Sprintf("删除会话失败: user_id=%s, contact_id=%s, err=%s", contact.UserId, contact.ContactId, resp1.Message))
+		}
+		resp2 := sessionClient.DeleteSessionsByUsers(contact.ContactId, contact.UserId)
+		if resp2.Code != 0 {
+			zlog.Warn(fmt.Sprintf("删除会话失败: user_id=%s, contact_id=%s, err=%s", contact.ContactId, contact.UserId, resp2.Message))
+		}
+	}
+	
+	// todo cache
+	if err := cache.GetGlobalCache().DelKeyIfExists("contact_user_list_" + uuid); err != nil {
+		zlog.Warn(fmt.Sprintf("清理用户自身联系人缓存失败: uuid=%s, err=%v", uuid, err))
+	}
+	if err := cache.GetGlobalCache().DelKeyIfExists("user_info_" + uuid); err != nil {
+		zlog.Warn(fmt.Sprintf("清理用户自身信息缓存失败: uuid=%s, err=%v", uuid, err))
+	}
+
 	return "删除用户成功", 0
 }
 
@@ -452,9 +426,9 @@ func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfo
 			if res.Error != nil {
 				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 					zlog.Info(res.Error.Error())
-					return "用户不存在", nil, 0
+					return "用户不存在", nil, -2
 				} else {
-					zlog.Error(fmt.Sprintf("查询用户数据库失败：uuid=%s, err=%v", uuid, res.Error))
+					zlog.Error(fmt.Sprintf("查询用户数据库失败:uuid=%s, err=%v", uuid, res.Error))
 					return constants.SYSTEM_ERROR, nil, -1
 				}
 			}
@@ -472,14 +446,16 @@ func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfo
 				IsAdmin:   user.IsAdmin,
 				Status:    user.Status,
 			}
-			//rspString, err := json.Marshal(rsp)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := cache.GetGlobalCache().SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Minute); err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			return "获取用户信息成功", &rsp, 1
+			rspString, err := json.Marshal(rsp)
+			if err != nil {
+				zlog.Error(err.Error())
+			}
+			if err := cache.GetGlobalCache().SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Hour); err != nil {
+				zlog.Warn(fmt.Sprintf("用户缓存写入失败: uuid=%s, err=%v", uuid, err))
+			} else {
+				zlog.Info(fmt.Sprintf("用户缓存写入成功: uuid=%s", uuid))
+			}
+			return "获取用户信息成功", &rsp, 0
 		} else {
 			zlog.Error(fmt.Sprintf("查询用户缓存失败: uuid=%s, err=%v", uuid, err))
 			return constants.SYSTEM_ERROR, nil, -1
@@ -490,7 +466,8 @@ func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfo
 		zlog.Error(fmt.Sprintf("解析用户缓存失败: uuid=%s, err=%v", uuid, err))
 		return constants.SYSTEM_ERROR, nil, -1
 	}
-	return "获取用户信息成功", &rsp, 1
+	zlog.Info(fmt.Sprintf("用户缓存命中: uuid=%s", uuid))
+	return "获取用户信息成功", &rsp, 0
 }
 
 // SetAdmin 设置管理员

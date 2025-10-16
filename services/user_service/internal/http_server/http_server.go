@@ -26,7 +26,7 @@ func init() {
 	GE.POST("/user/ableUsers", v1.AbleUsers)
 	GE.POST("/user/getUserInfo", v1.GetUserInfo)
 	GE.POST("/user/disableUsers", v1.DisableUsers)
-	GE.POST("/user/deleteUsers", v1.DeleteUsers)
+	GE.POST("/user/deleteUsers", v1.DeleteUser)
 	GE.POST("/user/setAdmin", v1.SetAdmin)
 	GE.POST("/user/sendSmsCode", v1.SendSmsCode)
 	GE.POST("/user/smsLogin", v1.SmsLogin)

@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/puoxiu/gogochat/common/cache"
+	"github.com/puoxiu/gogochat/common/clients"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 	"github.com/puoxiu/gogochat/services/user_service/internal/config"
 	"github.com/puoxiu/gogochat/services/user_service/internal/grpc_server"
@@ -35,21 +36,27 @@ func main() {
 	}
 	cache.Init(redisCache)
 
+	// 连接RPC服务-地址先硬编码 之后可以用etcd等服务发现
+	// session rpc 客户端
+	sessionGrpcAddr := fmt.Sprintf("%s:%d", "127.0.0.1", 9002)
+	if err := clients.InitGlobalSessionClient(sessionGrpcAddr); err != nil {
+		zlog.Fatal(fmt.Sprintf("初始化session rpc客户端失败: %v", err))
+	}
 	
 	// 启动 gRPC 服务
 	go func() {
 		addr := fmt.Sprintf(":%d", config.AppConfig.MainConfig.GrpcPort)
 		lis, err := net.Listen("tcp", addr)
 		if err != nil {
-			zlog.Fatal(fmt.Sprintf("启动 gRPC 服务失败: %v", err))
+			zlog.Fatal(fmt.Sprintf("启动 user gRPC 服务失败: %v", err))
 		}
 
 		s := grpc.NewServer()
 		user.RegisterUserServiceServer(s, &grpc_server.UserGrpcServer{})
-		zlog.Info(fmt.Sprintf("gRPC 服务启动成功，端口：%s", addr))
+		zlog.Info(fmt.Sprintf("user gRPC 服务启动成功，端口：%s", addr))
 
 		if err := s.Serve(lis); err != nil {
-			zlog.Fatal(fmt.Sprintf("gRPC 服务运行失败: %v", err))
+			zlog.Fatal(fmt.Sprintf("user gRPC 服务运行失败: %v", err))
 		}
 	}()
 

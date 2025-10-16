@@ -132,9 +132,12 @@ func GetUserInfo(c *gin.Context) {
 	JsonBack(c, message, ret, userInfo)
 }
 
-// DeleteUsers 删除用户
-func DeleteUsers(c *gin.Context) {
-	var req request.AbleUsersRequest
+// DeleteUser 删除用户
+func DeleteUser(c *gin.Context) {
+	type DeleteUserReq struct {
+		Uuid string `json:"uuid"`
+	}
+	var req DeleteUserReq
 	if err := c.BindJSON(&req); err != nil {
 		zlog.Error(err.Error())
 		c.JSON(http.StatusOK, gin.H{
@@ -143,7 +146,7 @@ func DeleteUsers(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := services.UserInfoService.DeleteUsers(req.UuidList)
+	message, ret := services.UserInfoService.DeleteUser(req.Uuid)
 	JsonBack(c, message, ret, nil)
 }
 

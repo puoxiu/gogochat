@@ -20,6 +20,9 @@ type SessionService interface {
 }
 
 ## 拆分session服务
+
+protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative services/session_service/proto/session.proto
+
 ### todo
 1. 待实现的group服务接口：
 获取群组信息
