@@ -11,6 +11,7 @@ type Config struct {
 	MainConfig      MainConfig      `mapstructure:"main_config"`
 	MySQLConfig     MySQLConfig     `mapstructure:"mysql_config"`
 	RedisConfig     RedisConfig     `mapstructure:"redis_config"`
+	EtcdConfig      EtcdConfig      `mapstructure:"etcd_config"`
 	LogConfig       LogConfig       `mapstructure:"log_config"`
 }
 
@@ -37,6 +38,12 @@ type RedisConfig struct {
 	Port     int    `mapstructure:"port"`
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
+}
+
+// etcd 配置
+type EtcdConfig struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
 }
 
 // 日志配置

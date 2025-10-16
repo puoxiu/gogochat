@@ -86,7 +86,7 @@ func (s *sessionService) CreateSession(req request.CreateSessionRequest) (string
 	if err := cache.GetGlobalCache().DelKeysWithPattern("session_list_" + req.SendId); err != nil {
 		zlog.Warn(fmt.Sprintf("删除用户会话缓存失败: %s", err.Error()))
 	}
-	return "会话创建成功", session.Uuid, 1
+	return "会话创建成功", session.Uuid, 0
 }
 
 // CheckOpenSessionAllowed 检查是否允许发起会话
@@ -149,7 +149,7 @@ func (s *sessionService) CheckOpenSessionAllowed(sendId, receiveId string) (stri
 
 // OpenSession 打开会话 -✅
 func (s *sessionService) OpenSession(req request.OpenSessionRequest) (string, string, int) {
-	rspString, err := cache.GetGlobalCache().GetKeyWithPrefixNilIsErr("session_" + req.SendId + "_" + req.ReceiveId)
+	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("session_" + req.SendId + "_" + req.ReceiveId)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			var session model.Session
@@ -174,18 +174,19 @@ func (s *sessionService) OpenSession(req request.OpenSessionRequest) (string, st
 			if err := cache.GetGlobalCache().SetKeyEx("session_"+req.SendId+"_"+req.ReceiveId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
 				zlog.Warn(fmt.Sprintf("缓存会话错误: %s", err.Error()))
 			}
-			return "打开会话成功", session.Uuid, 1
+			return "打开会话成功", session.Uuid, 0
 		} else {
 			zlog.Error(fmt.Sprintf("查询会话数据库错误: %s", err.Error()))
 			return constants.SYSTEM_ERROR, "", -1
 		}
 	}
 	var session model.Session
+	fmt.Println("rspString:====", rspString)
 	if err := json.Unmarshal([]byte(rspString), &session); err != nil {
 		zlog.Error(fmt.Sprintf("会话反序列化错误: %s", err.Error()))
 		return constants.SYSTEM_ERROR, "", -1
 	}
-	return "打开会话成功", session.Uuid, 1
+	return "打开会话成功", session.Uuid, 0
 }
 
 // GetUserSessionList 获取用户会话列表 -✅
@@ -219,10 +220,10 @@ func (s *sessionService) GetUserSessionList(ownerId string) (string, []respond.U
 				zlog.Error(fmt.Sprintf("会话序列化错误: %s", err.Error()))
 				return constants.SYSTEM_ERROR, nil, -1
 			}
-			if err := cache.GetGlobalCache().SetKeyEx("session_list_"+ownerId, string(rspString), time.Hour*constants.REDIS_TIMEOUT); err != nil {
+			if err := cache.GetGlobalCache().SetKeyEx("session_list_"+ownerId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
 				zlog.Warn(fmt.Sprintf("缓存会话列表错误: %s", err.Error()))
 			}
-			return "获取成功", sessionListRsp, 1
+			return "获取成功", sessionListRsp, 0
 		} else {
 			zlog.Error(fmt.Sprintf("查询会话数据库错误: %s", err.Error()))
 			return constants.SYSTEM_ERROR, nil, -1
@@ -233,7 +234,7 @@ func (s *sessionService) GetUserSessionList(ownerId string) (string, []respond.U
 		zlog.Error(fmt.Sprintf("会话反序列化错误: %s", err.Error()))
 		return constants.SYSTEM_ERROR, nil, -1
 	}
-	return "获取成功", rsp, 1
+	return "获取成功", rsp, 0
 }
 
 // GetGroupSessionList 获取群聊会话列表 -✅
@@ -266,7 +267,7 @@ func (s *sessionService) GetGroupSessionList(ownerId string) (string, []respond.
 			if err != nil {
 				zlog.Error(err.Error())
 			}
-			if err := cache.GetGlobalCache().SetKeyEx("group_session_list_"+ownerId, string(rspString), time.Hour*constants.REDIS_TIMEOUT); err != nil {
+			if err := cache.GetGlobalCache().SetKeyEx("group_session_list_"+ownerId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
 				zlog.Warn(fmt.Sprintf("缓存群聊会话列表错误: %s", err.Error()))
 			}
 			return "获取成功", sessionListRsp, 1

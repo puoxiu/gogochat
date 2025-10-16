@@ -11,6 +11,7 @@ type Config struct {
 	MainConfig      MainConfig      `mapstructure:"main_config"`
 	MySQLConfig     MySQLConfig     `mapstructure:"mysql_config"`
 	RedisConfig     RedisConfig     `mapstructure:"redis_config"`
+	EtcdConfig      EtcdConfig      `mapstructure:"etcd_config"`
 	AuthCodeConfig  AuthCodeConfig  `mapstructure:"auth_code_config"`
 	StaticSrcConfig StaticSrcConfig `mapstructure:"static_src_config"`
 	LogConfig       LogConfig       `mapstructure:"log_config"`
@@ -40,6 +41,14 @@ type RedisConfig struct {
 	Password string `mapstructure:"password"`
 	DB       int    `mapstructure:"db"`
 }
+
+// etcd 配置
+type EtcdConfig struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+}
+
+
 
 // 短信服务配置
 type AuthCodeConfig struct {

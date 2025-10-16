@@ -20,6 +20,11 @@ redis_config:
   password: "123456"
   db: 0
 
+# etcd 配置
+etcd_config:
+  host: "127.0.0.1"
+  port: 2379
+
 # 日志配置
 log_config:
   log_path: "./services/session_service/logs"

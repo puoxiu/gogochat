@@ -76,7 +76,7 @@ func (u *userContactService) GetUserList(uuid string) (string, []respond.MyUserL
 				if err != nil {
 					zlog.Error(err.Error())
 				} else {
-					if cacheErr := cache.GetGlobalCache().SetKeyEx(cacheKey, string(rspString), time.Hour*constants.REDIS_TIMEOUT); cacheErr != nil {
+					if cacheErr := cache.GetGlobalCache().SetKeyEx(cacheKey, string(rspString), time.Minute*constants.REDIS_TIMEOUT); cacheErr != nil {
 						zlog.Warn(fmt.Sprintf("联系人缓存写入失败: %v", cacheErr))
 					} else {
 						zlog.Info(fmt.Sprintf("联系人缓存写入成功: %s", cacheKey))

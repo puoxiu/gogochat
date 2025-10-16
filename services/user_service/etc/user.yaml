@@ -20,6 +20,13 @@ redis_config:
   password: "123456"
   db: 0
 
+# etcd 配置
+etcd_config:
+  host: "127.0.0.1"
+  port: 2379
+
+
+
 # 短信服务配置
 auth_code_config:
   access_key_id: "your_aliyun_access_key"

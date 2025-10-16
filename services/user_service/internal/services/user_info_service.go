@@ -10,7 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/puoxiu/gogochat/common/cache"
 	"github.com/puoxiu/gogochat/common/clients"
-	"github.com/puoxiu/gogochat/internal/service/sms"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dao"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dto/request"
 	"github.com/puoxiu/gogochat/services/user_service/internal/dto/respond"
@@ -139,7 +138,14 @@ func (u *userInfoService) SmsLogin(req request.SmsLoginRequest) (string, *respon
 
 // SendSmsCode 发送短信验证码 - 验证码登录
 func (u *userInfoService) SendSmsCode(telephone string) (string, int) {
-	return sms.VerificationCode(telephone)
+	code := "123456"
+	key := "auth_code_" + telephone
+
+	if err := cache.GetGlobalCache().SetKeyEx(key, code, time.Minute*constants.REDIS_TIMEOUT); err != nil {
+		zlog.Error(err.Error())
+		return constants.SYSTEM_ERROR, -1
+	}
+	return fmt.Sprintf("短信验证码发送成功: %s", code), 0
 }
 
 // checkTelephoneExist 检查手机号是否存在
@@ -166,6 +172,7 @@ func (u *userInfoService) Register(registerReq request.RegisterRequest) (string,
 		zlog.Error(err.Error())
 		return constants.SYSTEM_ERROR, nil, -1
 	}
+	fmt.Println("code:====", code)
 	if code != registerReq.SmsCode {
 		zlog.Warn(fmt.Sprintf("验证码不正确: telephone=%s", registerReq.Telephone))
 		return "验证码不正确，请重试", nil, -2
@@ -177,7 +184,7 @@ func (u *userInfoService) Register(registerReq request.RegisterRequest) (string,
 	}
 	// 判断电话是否已经被注册过了
 	message, ret := u.checkTelephoneExist(registerReq.Telephone)
-	if ret != 0 {
+	if ret == 0 {
 		return message, nil, ret
 	}
 	var newUser model.UserInfo
@@ -450,7 +457,7 @@ func (u *userInfoService) GetUserInfo(uuid string) (string, *respond.GetUserInfo
 			if err != nil {
 				zlog.Error(err.Error())
 			}
-			if err := cache.GetGlobalCache().SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Hour); err != nil {
+			if err := cache.GetGlobalCache().SetKeyEx("user_info_"+uuid, string(rspString), constants.REDIS_TIMEOUT*time.Minute); err != nil {
 				zlog.Warn(fmt.Sprintf("用户缓存写入失败: uuid=%s, err=%v", uuid, err))
 			} else {
 				zlog.Info(fmt.Sprintf("用户缓存写入成功: uuid=%s", uuid))

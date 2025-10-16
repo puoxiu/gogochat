@@ -7,15 +7,16 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/puoxiu/gogochat/common/cache"
 	"github.com/puoxiu/gogochat/common/clients"
+	"github.com/puoxiu/gogochat/common/etcd"
 	"github.com/puoxiu/gogochat/pkg/zlog"
 	"github.com/puoxiu/gogochat/services/session_service/internal/config"
+	"github.com/puoxiu/gogochat/services/session_service/internal/grpc_server"
 	"github.com/puoxiu/gogochat/services/session_service/internal/http_server"
 	session "github.com/puoxiu/gogochat/services/session_service/proto"
-	"github.com/puoxiu/gogochat/services/session_service/internal/grpc_server"
-
 
 	"google.golang.org/grpc"
 )
@@ -38,11 +39,14 @@ func main() {
 	}
 	cache.Init(redisCache)
 
-	// 连接RPC服务-地址先硬编码 之后可以用etcd等服务发现
-	// user rpc 客户端
-	userGrpcAddr := fmt.Sprintf("%s:%d", "127.0.0.1", 9001)
-	if err := clients.InitGlobalUserClient(userGrpcAddr); err != nil {
-		zlog.Fatal(fmt.Sprintf("初始化user rpc客户端失败: %v", err))
+	// 初始化 etcd 客户端 并注册服务
+	etcdAddr := fmt.Sprintf("%s:%d", config.AppConfig.EtcdConfig.Host, config.AppConfig.EtcdConfig.Port)
+	etcd.InitEtcd(etcdAddr)
+	if err := etcd.Register(
+		config.AppConfig.MainConfig.AppName,
+		fmt.Sprintf("%s:%d", config.AppConfig.MainConfig.Host, config.AppConfig.MainConfig.GrpcPort),
+	); err != nil {
+		zlog.Fatal(fmt.Sprintf("注册服务到 etcd 失败: %v", err))
 	}
 
 	// 启动seession gRPC 服务
@@ -68,6 +72,30 @@ func main() {
 		zlog.Info(fmt.Sprintf("HTTP 服务启动成功，端口：%s", addr))
 		if err := http_server.GE.Run(addr); err != nil {
 			zlog.Fatal(fmt.Sprintf("HTTP 服务启动失败: %v", err))
+		}
+	}()
+
+	// 初始化 user rpc 客户端--延迟初始化
+	go func() {
+		for {
+			addr, err := etcd.GetServiceAddr("user_service")
+			if err != nil {
+				zlog.Warn(fmt.Sprintf("获取 user_service 地址失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if len(addr) == 0 {
+				zlog.Warn("未找到 user_service 服务，请先启动 user_service")
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if err := clients.InitGlobalUserClient(addr[0]); err != nil {
+				zlog.Warn(fmt.Sprintf("初始化 user_service rpc 客户端失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			zlog.Info(fmt.Sprintf("成功初始化 user_service rpc 客户端: %s", addr[0]))
+			break
 		}
 	}()
 
