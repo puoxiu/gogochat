@@ -34,10 +34,6 @@ auth_code_config:
   sign_name: "GoGoChat"
   template_code: "SMS_154950909"
 
-# 静态资源（用户头像等）
-static_src_config:
-  static_avatar_path: "./static/avatars/"
-  static_file_path: "./static/files/"
 
 # 日志配置
 log_config:

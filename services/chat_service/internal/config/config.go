@@ -12,7 +12,8 @@ type Config struct {
 	MySQLConfig     MySQLConfig     `mapstructure:"mysql_config"`
 	RedisConfig     RedisConfig     `mapstructure:"redis_config"`
 	EtcdConfig      EtcdConfig      `mapstructure:"etcd_config"`
-	AuthCodeConfig  AuthCodeConfig  `mapstructure:"auth_code_config"`
+	KafkaConfig     KafkaConfig     `mapstructure:"kafka_config"`
+	StaticSrcConfig StaticSrcConfig `mapstructure:"static_src_config"`
 	LogConfig       LogConfig       `mapstructure:"log_config"`
 }
 
@@ -47,16 +48,20 @@ type EtcdConfig struct {
 	Port int    `mapstructure:"port"`
 }
 
-
-
-// 短信服务配置
-type AuthCodeConfig struct {
-	AccessKeyId     string `mapstructure:"access_key_id"`
-	AccessKeySecret string `mapstructure:"access_key_secret"`
-	SignName        string `mapstructure:"sign_name"`
-	TemplateCode    string `mapstructure:"template_code"`
+// Kafka配置
+type KafkaConfig struct {
+	Address     string `mapstructure:"address"`
+	ChatTopic   string `mapstructure:"chatTopic"`
+	MessageMode string `mapstructure:"messageMode"`
+	Partition   int    `mapstructure:"partition"`
+	Timeout     int    `mapstructure:"timeout"`
 }
 
+// 静态资源配置
+type StaticSrcConfig struct {
+	StaticAvatarPath string `mapstructure:"static_avatar_path"`
+	StaticFilePath   string `mapstructure:"static_file_path"`
+}
 
 // 日志配置
 type LogConfig struct {

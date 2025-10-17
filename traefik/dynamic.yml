@@ -15,6 +15,13 @@ http:
         - web
       service: session-service
       middlewares: []
+    
+    chat-router:
+      rule: "PathPrefix(`/message`) || PathPrefix(`/chatroom`) || PathPrefix(`/wss`) || PathPrefix(`/static`)"
+      entryPoints:
+        - web
+      service: chat-service
+      middlewares: []
 
   services:
     user-service:
@@ -27,4 +34,10 @@ http:
       loadBalancer:
         servers:
           - url: "http://host.docker.internal:8002"   # 宿主机上的 session HTTP 服务
+        passHostHeader: true
+
+    chat-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8003"   # 宿主机上的 chat HTTP 服务
         passHostHeader: true

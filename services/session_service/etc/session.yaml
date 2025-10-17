@@ -25,6 +25,11 @@ etcd_config:
   host: "127.0.0.1"
   port: 2379
 
+# 静态资源（用户头像等）
+static_src_config:
+  static_avatar_path: "./static/avatars/"
+  static_file_path: "./static/files/"
+
 # 日志配置
 log_config:
   log_path: "./services/session_service/logs"

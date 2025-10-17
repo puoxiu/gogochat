@@ -3,7 +3,6 @@ package http_server
 import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/puoxiu/gogochat/config"
 	v1 "github.com/puoxiu/gogochat/services/user_service/api/v1"
 	// "github.com/puoxiu/gogochat/pkg/ssl"
 )
@@ -17,8 +16,7 @@ func init() {
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	GE.Use(cors.New(corsConfig))
 	// GE.Use(ssl.TlsHandler(config.GetConfig().MainConfig.Host, config.GetConfig().MainConfig.Port))
-	GE.Static("/static/avatars", config.GetConfig().StaticAvatarPath)
-	GE.Static("/static/files", config.GetConfig().StaticFilePath)
+
 	GE.POST("/login", v1.Login)
 	GE.POST("/register", v1.Register)
 	GE.POST("/user/updateUserInfo", v1.UpdateUserInfo)

@@ -1,0 +1,44 @@
+# 服务基础配置
+main_config:
+  app_name: "chat_service"
+  host: "127.0.0.1"
+  grpc_port: 9003       # 聊天服务gRPC端口
+  http_port: 8003       # 聊天服务HTTP端口（如需）
+
+# 数据库配置
+mysql_config:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "123456"
+  database_name: "gogochat"
+
+# Redis配置
+redis_config:
+  host: "127.0.0.1"
+  port: 6379
+  password: "123456"
+  db: 0
+
+# etcd 配置
+etcd_config:
+  host: "127.0.0.1"
+  port: 2379
+
+# Kafka配置
+kafka_config:
+  address: "127.0.0.1:9092"
+  chatTopic: "chat_message"
+  messageMode: "channel" # 消息模式 channel or kafka
+  partition: 0 # kafka partition
+  timeout: 3 # 单位秒
+
+# 静态资源配置
+static_src_config:
+  static_avatar_path: "./static/avatars"  # 头像存储目录（相对路径）
+  static_file_path: "./static/files"      # 其他文件存储目录（可选）
+
+
+# 日志配置
+log_config:
+  log_path: "./services/chat_service/logs"

@@ -14,7 +14,7 @@ protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=p
 ### todo
 1. 待实现的session服务接口：
 
-// 会话服务接口（已定义，无需重复实现）
+// 会话服务接口（已定义，无需重复实现）-✅
 type SessionService interface {
     DeleteSessionsByUsers(sendId, receiveId string) error
 }
@@ -27,3 +27,10 @@ protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=p
 1. 待实现的group服务接口：
 获取群组信息
 
+
+## 拆分聊天服务
+
+protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative services/chat_service/proto/chat.proto
+
+### todo
+1. 待实现的聊天服务接口：
