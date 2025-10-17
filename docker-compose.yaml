@@ -71,6 +71,19 @@ services:
     networks:
       - gogochat-network
 
+  traefik:
+    image: traefik:v2.11
+    container_name: gogochat-traefik
+    restart: unless-stopped
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    ports:
+      - "10001:10001"   # 网关入口（前端访问）
+      - "10002:10002"   # Traefik Dashboard（开发用）
+    networks:
+      - gogochat-network
+
 networks:
   gogochat-network:
     driver: bridge

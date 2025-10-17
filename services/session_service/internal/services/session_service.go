@@ -142,7 +142,7 @@ func (s *sessionService) CheckOpenSessionAllowed(sendId, receiveId string) (stri
 		// 	return "对方已被禁用，无法发起会话", false, -2
 		// }
 	}
-	return "可以发起会话", true, 1
+	return "可以发起会话", true, 0
 }
 
 // DeleteSession 删除会话

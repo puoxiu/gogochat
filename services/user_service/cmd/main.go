@@ -74,7 +74,7 @@ func main() {
 		}
 	}()
 
-	// 初始化 session_service rpc 客户端--延迟初始化
+	// 初始化 session_service rpc 客户端--初始化失败时重试
 	go func() {
 		for {
 			addr, err := etcd.GetServiceAddr("session_service")

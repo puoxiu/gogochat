@@ -1,0 +1,20 @@
+# traefik/traefik.yml - 静态配置（用于启动 Traefik）
+entryPoints:
+  web:
+    address: ":10001"
+  dashboard:
+    address: ":10002"
+
+
+
+api:
+  dashboard: true
+  insecure: true   # 开发环境开启（生产请关闭并加认证）
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+log:
+  level: INFO

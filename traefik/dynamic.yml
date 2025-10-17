@@ -1,0 +1,30 @@
+# traefik/dynamic.yml - 动态路由（把 /user -> host.docker.internal:8001）
+http:
+  routers:
+    user-router:
+      # 匹配所有根路径路由和带 /user、/contact 前缀的路由
+      rule: "PathPrefix(`/user`) || PathPrefix(`/contact`) || Path(`/login`) || Path(`/register`)"
+      entryPoints:
+        - web
+      service: user-service
+      middlewares: []
+
+    session-router:
+      rule: "PathPrefix(`/session`)"
+      entryPoints:
+        - web
+      service: session-service
+      middlewares: []
+
+  services:
+    user-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8001"   # 宿主机上的 user HTTP 服务
+        passHostHeader: true
+
+    session-service:
+      loadBalancer:
+        servers:
+          - url: "http://host.docker.internal:8002"   # 宿主机上的 session HTTP 服务
+        passHostHeader: true
