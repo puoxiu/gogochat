@@ -3,7 +3,7 @@ http:
   routers:
     user-router:
       # 匹配所有根路径路由和带 /user、/contact 前缀的路由
-      rule: "PathPrefix(`/user`) || PathPrefix(`/contact`) || Path(`/login`) || Path(`/register`)"
+      rule: "PathPrefix(`/user`) || PathPrefix(`/contact`) || Path(`/login`) || Path(`/register`) || PathPrefix(`/group`)"
       entryPoints:
         - web
       service: user-service

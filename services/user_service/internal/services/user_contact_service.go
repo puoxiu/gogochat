@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -40,7 +39,7 @@ func (u *userContactService) GetUserList(uuid string) (string, []respond.MyUserL
 			var contactList []model.UserContact
             contactRes := dao.GormDB.
                 Order("created_at DESC"). // 按添加时间倒序，最新的在前面
-                Where("user_id = ? AND status != ?", uuid, 3). // 仅排除当前用户自己删的联系人
+                Where("user_id = ? AND status NOT IN (?, ?)", uuid, contact_status_enum.DELETE, contact_status_enum.BE_DELETE).
                 Find(&contactList)
 			if contactRes.Error != nil {
                 if errors.Is(contactRes.Error, gorm.ErrRecordNotFound) {
@@ -194,7 +193,6 @@ func (u *userContactService) GetContactInfo(contactId string) (string, respond.G
 			zlog.Error(res.Error.Error())
 			return constants.SYSTEM_ERROR, respond.GetContactInfoRespond{}, -1
 		}
-		log.Println(user)
 		if user.Status != user_status_enum.DISABLE {
 			return "获取联系人信息成功", respond.GetContactInfoRespond{
 				ContactId:        user.Uuid,
@@ -213,43 +211,79 @@ func (u *userContactService) GetContactInfo(contactId string) (string, respond.G
 	}
 }
 
-// DeleteContact 删除联系人（只包含用户）--单向删除机制 -✅
+// DeleteContact 删除联系人（只包含用户）-✅
 // 此部分需要注意服务拆分：session服务接口的调用，删除会话
 func (u *userContactService) DeleteContact(ownerId, contactId string) (string, int) {
+	// 1. 先调用会话服务删除双方会话（RPC失败则直接返回，避免后续数据库操作）
+	sessionClient, err := clients.GetGlobalSessionClient()
+    if err != nil {
+        zlog.Error(fmt.Sprintf("获取会话服务客户端失败：ownerId=%s, contactId=%s, err=%v", ownerId, contactId, err))
+        return constants.SYSTEM_ERROR, -1
+    }
+    if resp := sessionClient.DeleteSessionsByUsers(ownerId, contactId); resp.Code != 0 {
+        zlog.Warn(fmt.Sprintf("删除会话失败(owner->contact)：%v", resp.Message))
+    }
+    if resp := sessionClient.DeleteSessionsByUsers(contactId, ownerId); resp.Code != 0 {
+        zlog.Warn(fmt.Sprintf("删除会话失败(contact->owner)：%v", resp.Message))
+    }
+
 	// status改变为删除
+    // 2. 开启事务处理数据库操作
+    tx := dao.GormDB.Begin()
+    if tx.Error != nil {
+        zlog.Error(fmt.Sprintf("开启事务失败：%v", tx.Error))
+        return constants.SYSTEM_ERROR, -1
+    }
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+        }
+    }()
 	// 1. 更新用户联系人关系（用户服务职责）
-	var deletedAt gorm.DeletedAt
-	deletedAt.Time = time.Now()
-	deletedAt.Valid = true
+	deletedAt := gorm.DeletedAt{Time: time.Now(), Valid: true}
 	if res := dao.GormDB.Model(&model.UserContact{}).Where("user_id = ? AND contact_id = ?", ownerId, contactId).Updates(map[string]interface{}{
 		"deleted_at": deletedAt,
 		"status":     contact_status_enum.DELETE,
 	}); res.Error != nil {
-		zlog.Error(fmt.Sprintf("删除用户联系人关系失败：%v", res.Error))
+		zlog.Error(fmt.Sprintf("主动删除用户联系人关系失败：%v", res.Error))
+		return constants.SYSTEM_ERROR, -1
+	}
+	if res := dao.GormDB.Model(&model.UserContact{}).Where("user_id = ? AND contact_id = ?", contactId, ownerId).Updates(map[string]interface{}{
+		"deleted_at": deletedAt,
+		"status":     contact_status_enum.BE_DELETE,
+	}); res.Error != nil {
+		zlog.Error(fmt.Sprintf("被主动删除用户联系人关系失败：%v", res.Error))
 		return constants.SYSTEM_ERROR, -1
 	}
 
-	// 2. 调用会话服务删除关联会话（解耦核心）todo
-	sessionClient, err := clients.GetGlobalSessionClient()
-	if err != nil {
-		zlog.Error(fmt.Sprintf("获取会话服务客户端失败：%v", err))
-		return constants.SYSTEM_ERROR, -1
-	}
-	resp := sessionClient.DeleteSessionsByUsers(ownerId, contactId)
-	if resp.Code != 0 {
-		zlog.Warn(fmt.Sprintf("删除会话失败：%v", resp.Message))
-		return resp.Message, int(resp.Code)
-	}
-		
-	// 更新联系人申请记录（用户服务职责，保留）
-	// 联系人添加的记录得删，这样之后再添加就看新的申请记录，如果申请记录结果是拉黑就没法再添加，如果是拒绝可以再添加
-	if res := dao.GormDB.Model(&model.ContactApply{}).Where("contact_id = ? AND user_id = ?", ownerId, contactId).Update("deleted_at", deletedAt); res.Error != nil {
-		zlog.Error(res.Error.Error())
-		return constants.SYSTEM_ERROR, -1
-	}
+    // 清理双方的申请记录
+    if res := tx.Model(&model.ContactApply{}).
+        Where("contact_id = ? AND user_id = ?", ownerId, contactId).
+        Update("deleted_at", deletedAt); res.Error != nil {
+        tx.Rollback()
+        zlog.Error(fmt.Sprintf("清理申请记录(contact->owner)失败：%v", res.Error))
+        return constants.SYSTEM_ERROR, -1
+    }
+    if res := tx.Model(&model.ContactApply{}).
+        Where("contact_id = ? AND user_id = ?", contactId, ownerId).
+        Update("deleted_at", deletedAt); res.Error != nil {
+        tx.Rollback()
+        zlog.Error(fmt.Sprintf("清理申请记录(owner->contact)失败：%v", res.Error))
+        return constants.SYSTEM_ERROR, -1
+    }
 
-	if err := cache.GetGlobalCache().DelKeysWithPattern("contact_user_list_" + ownerId); err != nil {
+	// 3. 提交事务
+	if err := tx.Commit().Error; err != nil {
+        tx.Rollback()
+        zlog.Error(fmt.Sprintf("提交事务失败：%v", err))
+        return constants.SYSTEM_ERROR, -1
+    }
+
+	if err := cache.GetGlobalCache().DelKeyIfExists("contact_user_list_" + ownerId); err != nil {
 		zlog.Error(fmt.Sprintf("删除用户联系人缓存失败：%v", err))
+	}
+	if err := cache.GetGlobalCache().DelKeyIfExists("contact_user_list_" + contactId); err != nil {
+		zlog.Error(fmt.Sprintf("删除联系人缓存失败：%v", err))
 	}
 	return "删除联系人成功", 0
 }

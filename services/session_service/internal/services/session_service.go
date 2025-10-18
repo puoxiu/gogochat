@@ -308,5 +308,32 @@ func (s *sessionService) DeleteSession(ownerId, sessionId string) (string, int) 
 	if err := cache.GetGlobalCache().DelKeysWithPattern("session_list_" + ownerId); err != nil {
 		zlog.Warn(fmt.Sprintf("删除缓存会话列表失败: %s", err.Error()))
 	}
-	return "删除成功", 1
+	return "删除成功", 0
+}
+
+// DeleteSessionBySendIdAndReceiveId 删除会话 -rpc 调用
+func (s *sessionService) DeleteSessionBySendIdAndReceiveId(sendId, receiveId string) (string, int) {
+	var session model.Session
+	if res := dao.GormDB.Where("send_id = ? AND receive_id = ?", sendId, receiveId).First(&session); res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			zlog.Info(fmt.Sprintf("DeleteSessionBySendIdAndReceiveId删除会话不存在, send_id: %s, receive_id: %s", sendId, receiveId))
+			return "该会话不存在", -2
+		} else {
+			zlog.Error(fmt.Sprintf("删除会话数据库错误: %s", res.Error.Error()))
+			return constants.SYSTEM_ERROR, -1
+		}
+	}
+	session.DeletedAt.Valid = true
+	session.DeletedAt.Time = time.Now()
+	if res := dao.GormDB.Save(&session); res.Error != nil {
+		zlog.Error(fmt.Sprintf("删除会话数据库错误: %s", res.Error.Error()))
+		return constants.SYSTEM_ERROR, -1
+	}
+	if err := cache.GetGlobalCache().DelKeysWithPattern("group_session_list_" + sendId); err != nil {
+		zlog.Warn(fmt.Sprintf("删除缓存群聊会话列表失败: %s", err.Error()))
+	}
+	if err := cache.GetGlobalCache().DelKeysWithPattern("session_list_" + sendId); err != nil {
+		zlog.Warn(fmt.Sprintf("删除缓存会话列表失败: %s", err.Error()))
+	}
+	return "删除成功", 0
 }

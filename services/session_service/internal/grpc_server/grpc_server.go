@@ -21,7 +21,7 @@ func (s *SessionGrpcServer) DeleteSessionsByUsers( ctx context.Context, req *ses
 		}, nil
 	}
 
-	msg, code := services.SessionService.DeleteSession(req.SendId, req.ReceiveId)
+	msg, code := services.SessionService.DeleteSessionBySendIdAndReceiveId(req.SendId, req.ReceiveId)
 
 	return &session.DeleteSessionsByUsersResponse{
 		Code:    int32(code),

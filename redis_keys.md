@@ -38,3 +38,17 @@ key : group_session_list_<uuid>
 value : <群聊会话列表>
 有效时间 : 1小时
 
+8. 我创建的群聊列表缓存键值：
+key : contact_mygroup_list_<uuid>
+value : <我创建的群聊列表>
+有效时间 : 1小时
+
+9. 群聊详细信息缓存键值：
+key: group_info_<groupId>
+value: <群聊详细信息: 群聊ID, 群聊名称, 群聊描述, 群聊创建时间, 群聊成员列表, 群聊更新时间, 群聊删除时间等>
+有效时间: 1小时
+
+10. 群聊成员列表缓存键值：
+key : group_memberlist_<groupId>
+value : <群聊成员列表: 用户ID, 昵称, 头像>
+有效时间 : 1小时 

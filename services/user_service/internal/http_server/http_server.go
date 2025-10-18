@@ -40,4 +40,15 @@ func init() {
 	GE.POST("/contact/getAddGroupList", v1.GetAddGroupList)
 	GE.POST("/contact/refuseContactApply", v1.RefuseContactApply)
 	GE.POST("/contact/blackApply", v1.BlackApply)
+
+	GE.POST("/group/createGroup", v1.CreateGroup)
+	GE.POST("/group/loadMyGroup", v1.LoadMyGroup)
+	GE.POST("/group/checkGroupAddMode", v1.CheckGroupAddMode)
+	GE.POST("/group/enterGroupDirectly", v1.EnterGroupDirectly)
+	GE.POST("/group/leaveGroup", v1.LeaveGroup)
+	GE.POST("/group/dismissGroup", v1.DismissGroup)
+	GE.POST("/group/getGroupInfo", v1.GetGroupInfo)
+	GE.POST("/group/updateGroupInfo", v1.UpdateGroupInfo)
+	GE.POST("/group/getGroupMemberList", v1.GetGroupMemberList)
+	GE.POST("/group/removeGroupMembers", v1.RemoveGroupMembers)
 }

@@ -1,13 +1,14 @@
 package v1
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/puoxiu/gogochat/internal/dto/request"
-	"github.com/puoxiu/gogochat/internal/service/gorm"
 	"github.com/puoxiu/gogochat/pkg/constants"
 	"github.com/puoxiu/gogochat/pkg/zlog"
+	"github.com/puoxiu/gogochat/services/user_service/internal/dto/request"
+	"github.com/puoxiu/gogochat/services/user_service/internal/services"
 )
 
 // CreateGroup 创建群聊
@@ -21,7 +22,7 @@ func CreateGroup(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.CreateGroup(createGroupReq)
+	message, ret := services.GroupInfoService.CreateGroup(createGroupReq)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -36,7 +37,7 @@ func LoadMyGroup(c *gin.Context) {
 		})
 		return
 	}
-	message, groupList, ret := gorm.GroupInfoService.LoadMyGroup(loadMyGroupReq.OwnerId)
+	message, groupList, ret := services.GroupInfoService.LoadMyGroup(loadMyGroupReq.OwnerId)
 	JsonBack(c, message, ret, groupList)
 }
 
@@ -51,7 +52,7 @@ func CheckGroupAddMode(c *gin.Context) {
 		})
 		return
 	}
-	message, addMode, ret := gorm.GroupInfoService.CheckGroupAddMode(req.GroupId)
+	message, addMode, ret := services.GroupInfoService.CheckGroupAddMode(req.GroupId)
 	JsonBack(c, message, ret, addMode)
 }
 
@@ -66,7 +67,7 @@ func EnterGroupDirectly(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.EnterGroupDirectly(req.OwnerId, req.ContactId)
+	message, ret := services.GroupInfoService.EnterGroupDirectly(req.OwnerId, req.ContactId)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -81,7 +82,7 @@ func LeaveGroup(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.LeaveGroup(req.UserId, req.GroupId)
+	message, ret := services.GroupInfoService.LeaveGroup(req.UserId, req.GroupId)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -96,7 +97,7 @@ func DismissGroup(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.DismissGroup(req.OwnerId, req.GroupId)
+	message, ret := services.GroupInfoService.DismissGroup(req.OwnerId, req.GroupId)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -111,45 +112,10 @@ func GetGroupInfo(c *gin.Context) {
 		})
 		return
 	}
-	message, groupInfo, ret := gorm.GroupInfoService.GetGroupInfo(req.GroupId)
+	message, groupInfo, ret := services.GroupInfoService.GetGroupInfo(req.GroupId)
 	JsonBack(c, message, ret, groupInfo)
 }
 
-// GetGroupInfoList 获取群聊列表 - 管理员
-func GetGroupInfoList(c *gin.Context) {
-	message, groupList, ret := gorm.GroupInfoService.GetGroupInfoList()
-	JsonBack(c, message, ret, groupList)
-}
-
-// DeleteGroups 删除列表中群聊 - 管理员
-func DeleteGroups(c *gin.Context) {
-	var req request.DeleteGroupsRequest
-	if err := c.BindJSON(&req); err != nil {
-		zlog.Error(err.Error())
-		c.JSON(http.StatusOK, gin.H{
-			"code":    500,
-			"message": constants.SYSTEM_ERROR,
-		})
-		return
-	}
-	message, ret := gorm.GroupInfoService.DeleteGroups(req.UuidList)
-	JsonBack(c, message, ret, nil)
-}
-
-// SetGroupsStatus 设置群聊是否启用
-func SetGroupsStatus(c *gin.Context) {
-	var req request.SetGroupsStatusRequest
-	if err := c.BindJSON(&req); err != nil {
-		zlog.Error(err.Error())
-		c.JSON(http.StatusOK, gin.H{
-			"code":    500,
-			"message": constants.SYSTEM_ERROR,
-		})
-		return
-	}
-	message, ret := gorm.GroupInfoService.SetGroupsStatus(req.UuidList, req.Status)
-	JsonBack(c, message, ret, nil)
-}
 
 // UpdateGroupInfo 更新群聊消息
 func UpdateGroupInfo(c *gin.Context) {
@@ -162,7 +128,7 @@ func UpdateGroupInfo(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.UpdateGroupInfo(req)
+	message, ret := services.GroupInfoService.UpdateGroupInfo(req)
 	JsonBack(c, message, ret, nil)
 }
 
@@ -177,12 +143,13 @@ func GetGroupMemberList(c *gin.Context) {
 		})
 		return
 	}
-	message, groupMemberList, ret := gorm.GroupInfoService.GetGroupMemberList(req.GroupId)
+	message, groupMemberList, ret := services.GroupInfoService.GetGroupMemberList(req.GroupId)
 	JsonBack(c, message, ret, groupMemberList)
 }
 
 // RemoveGroupMembers 移除群聊成员
 func RemoveGroupMembers(c *gin.Context) {
+	log.Println("===========移除群聊成员请求:")
 	var req request.RemoveGroupMembersRequest
 	if err := c.BindJSON(&req); err != nil {
 		zlog.Error(err.Error())
@@ -192,6 +159,6 @@ func RemoveGroupMembers(c *gin.Context) {
 		})
 		return
 	}
-	message, ret := gorm.GroupInfoService.RemoveGroupMembers(req)
+	message, ret := services.GroupInfoService.RemoveGroupMembers(req)
 	JsonBack(c, message, ret, nil)
 }

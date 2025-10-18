@@ -1,7 +1,6 @@
 package zlog
 
 import (
-	"github.com/puoxiu/gogochat/config"
 	"github.com/natefinch/lumberjack"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -15,9 +14,7 @@ var logPath string // 最终会是“目录/文件名”，如 logs/app.log
 
 // 自动调用：初始化日志
 func init() {
-	// 1. 从配置读取日志目录，拼接出“日志文件路径”（目录+文件名）
-	conf := config.GetConfig()
-	logDir := conf.LogPath       // 配置的日志目录：/Users/.../gogochat/logs
+	logDir := "/Users/xing/Desktop/test/go-ai/gogochat/logs"
 	logPath = path.Join(logDir, "app.log") // 拼接日志文件路径：logs/app.log
 
 	// 2. 确保日志目录存在（不存在则创建，避免lumberjack报错）

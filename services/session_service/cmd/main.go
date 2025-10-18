@@ -13,6 +13,7 @@ import (
 	"github.com/puoxiu/gogochat/common/clients"
 	"github.com/puoxiu/gogochat/common/etcd"
 	"github.com/puoxiu/gogochat/pkg/zlog"
+	"github.com/puoxiu/gogochat/services/session_service/internal/dao"
 	"github.com/puoxiu/gogochat/services/session_service/internal/config"
 	"github.com/puoxiu/gogochat/services/session_service/internal/grpc_server"
 	"github.com/puoxiu/gogochat/services/session_service/internal/http_server"
@@ -25,6 +26,9 @@ func main() {
 	if err := config.InitConfig("/Users/xing/Desktop/test/go-ai/gogochat/services/session_service/etc/session.yaml"); err != nil {
 		zlog.Fatal(fmt.Sprintf("初始化配置失败: %v", err))
 	}
+
+	// 初始化 MySQL 数据库
+	dao.InitMySQL()
 
 	// 初始化缓存
 	redisCache := cache.NewRedisCache(
