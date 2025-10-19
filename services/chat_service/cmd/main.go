@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/puoxiu/gogochat/common/cache"
+	"github.com/puoxiu/gogochat/common/clients"
 	"github.com/puoxiu/gogochat/common/etcd"
 	"github.com/puoxiu/gogochat/common/kafka"
 	"github.com/puoxiu/gogochat/pkg/zlog"
@@ -84,10 +85,65 @@ func main() {
 		}
 	}()
 
+	// 初始化 session user rpc 客户端--延迟初始化
+	go func() {
+		for {
+			addr, err := etcd.GetServiceAddr("session_service")
+			if err != nil {
+				zlog.Warn(fmt.Sprintf("获取 session_service 地址失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if len(addr) == 0 {
+				zlog.Warn("未找到 session_service 服务，请先启动 session_service")
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if err := clients.InitGlobalSessionClient(addr[0]); err != nil {
+				zlog.Warn(fmt.Sprintf("初始化 session_service rpc 客户端失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			zlog.Info(fmt.Sprintf("成功初始化 session_service rpc 客户端: %s", addr[0]))
+			break
+		}
+
+	}()
+
+	// 初始化 user rpc 客户端--延迟初始化
+	go func() {
+		for {
+			addr, err := etcd.GetServiceAddr("user_service")
+			if err != nil {
+				zlog.Warn(fmt.Sprintf("获取 user_service 地址失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if len(addr) == 0 {
+				zlog.Warn("未找到 user_service 服务，请先启动 user_service")
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			if err := clients.InitGlobalUserClient(addr[0]); err != nil {
+				zlog.Warn(fmt.Sprintf("初始化 user_service rpc 客户端失败: %v", err))
+				time.Sleep(time.Second * 10)
+				continue
+			}
+			zlog.Info(fmt.Sprintf("成功初始化 user_service rpc 客户端: %s", addr[0]))
+			break
+		}
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	zlog.Info("收到退出信号，正在关闭 chat_service ...")
+	zlog.Info("收到退出信号，正在关闭 session_service ...")
 
+	if sessionClient, err := clients.GetGlobalSessionClient(); err == nil {
+		if closeErr := sessionClient.Close(); closeErr != nil {
+			zlog.Warn(fmt.Sprintf("关闭session rpc客户端失败: %v", closeErr))
+		} else {
+			zlog.Info("session rpc客户端已关闭")
+		}
+	}
 }

@@ -8,10 +8,21 @@ message DeleteSessionsByUsersRequest {
   string send_id = 1;    // 发送者ID
   string receive_id = 2; // 接收者ID
 }
-
 // 删除会话响应
 message DeleteSessionsByUsersResponse {
-  int32 code = 1;        // 状态码 1-成功 0-失败
+  int32 code = 1;        // 状态码 0-成功 -1-服务失败 -2 业务失败
+  string message = 2;    // 提示信息
+}
+
+
+// 创建会话请求
+message CreateSessionRequest {
+  string send_id = 1;    // 发送者ID
+  string receive_id = 2; // 接收者ID
+}
+// 创建会话响应
+message CreateSessionResponse {
+  int32 code = 1;        // 状态码 0-成功 -1-服务失败 -2 业务失败
   string message = 2;    // 提示信息
 }
 
@@ -19,4 +30,6 @@ message DeleteSessionsByUsersResponse {
 service SessionService {
   // 根据用户ID删除会话
   rpc DeleteSessionsByUsers (DeleteSessionsByUsersRequest) returns (DeleteSessionsByUsersResponse);
+  // 创建会话
+  rpc CreateSessionIfNotExist (CreateSessionRequest) returns (CreateSessionResponse);
 }

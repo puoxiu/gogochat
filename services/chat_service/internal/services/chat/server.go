@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
 	"github.com/puoxiu/gogochat/common/cache"
+	"github.com/puoxiu/gogochat/common/clients"
 	"github.com/puoxiu/gogochat/pkg/constants"
 	"github.com/puoxiu/gogochat/pkg/enum/message/message_status_enum"
 	"github.com/puoxiu/gogochat/pkg/enum/message/message_type_enum"
@@ -21,6 +22,12 @@ import (
 
 	"github.com/puoxiu/gogochat/pkg/random"
 	"github.com/puoxiu/gogochat/pkg/zlog"
+)
+
+const (
+	MsgStatusSuccess      = 0  // 发送成功
+	MsgStatusServerError  = -1 // 服务端错误
+	MsgStatusNotFriend    = -2 // 检查好友关系 可能被删、拉黑等
 )
 
 type Server struct {
@@ -74,8 +81,8 @@ func (s *Server) Start() {
 				s.mutex.Lock()
 				s.Clients[client.Uuid] = client
 				s.mutex.Unlock()
-				zlog.Debug(fmt.Sprintf("欢迎来到kama聊天服务器，亲爱的用户%s\n", client.Uuid))
-				err := client.Conn.WriteMessage(websocket.TextMessage, []byte("欢迎来到kama聊天服务器"))
+				zlog.Debug(fmt.Sprintf("欢迎来到gogo聊天服务器,亲爱的用户%s\n", client.Uuid))
+				err := client.Conn.WriteMessage(websocket.TextMessage, []byte("欢迎来到gogo聊天服务器"))
 				if err != nil {
 					zlog.Error(err.Error())
 				}
@@ -99,7 +106,6 @@ func (s *Server) Start() {
 				if err := json.Unmarshal(data, &chatMessageReq); err != nil {
 					zlog.Error(err.Error())
 				}
-				// log.Println("原消息为：", data, "反序列化后为：", chatMessageReq)
 				if chatMessageReq.Type == message_type_enum.Text {
 					// 存message
 					message := model.Message{
@@ -125,14 +131,56 @@ func (s *Server) Start() {
 					if res := dao.GormDB.Create(&message); res.Error != nil {
 						zlog.Error(res.Error.Error())
 					}
-					if message.ReceiveId[0] == 'U' { // 发送给User
+					if message.ReceiveId[0] == 'U' {
+						// 判断是否是正常好友关系
+						userClients, err := clients.GetGlobalUserClient()
+						if err != nil {
+							zlog.Error("获取用户客户端失败: " + err.Error())
+							// 向发送者反馈服务端错误
+							s.mutex.Lock()
+							if sendClient, ok := s.Clients[message.SendId]; ok {
+								sendMessageToClient(sendClient, &message, MsgStatusServerError)
+							}
+							s.mutex.Unlock()
+							continue
+						}
+						resp := userClients.GetContactStatus(message.SendId, message.ReceiveId)
+						if resp.Code == -1 {
+							zlog.Error("查询好友关系失败: " + resp.Message)
+							s.mutex.Lock()
+							if sendClient, ok := s.Clients[message.SendId]; ok {
+								sendMessageToClient(sendClient, &message, MsgStatusServerError)
+							}
+							s.mutex.Unlock()
+							continue
+						}
+						if resp.Status != 0 {
+							zlog.Info("用户" + message.SendId + "和用户" + message.ReceiveId + "不是好友关系")
+						    s.mutex.Lock()
+							if sendClient, ok := s.Clients[message.SendId]; ok {
+								sendMessageToClient(sendClient, &message, MsgStatusNotFriend)
+							}
+							s.mutex.Unlock()
+							continue
+						}
+
+						// 为接收者创建与发送者的会话（如果不存在）
+						sessionClient, err := clients.GetGlobalSessionClient()
+						if err != nil {
+							zlog.Error("获取会话客户端失败: " + err.Error())
+						} else {
+							if resp := sessionClient.CreateSessionIfNotExist(message.ReceiveId, message.SendId); resp.Code != 0 {
+								zlog.Error("为接收者创建会话失败: " + resp.Message)
+							}
+						}
+
 						// 如果能找到ReceiveId，说明在线，可以发送，否则存表后跳过
 						// 因为在线的时候是通过websocket更新消息记录的，离线后通过存表，登录时只调用一次数据库操作
 						// 切换chat对象后，前端的messageList也会改变，获取messageList从第二次就是从redis中获取
 						messageRsp := respond.GetMessageListRespond{
 							SendId:     message.SendId,
 							SendName:   message.SendName,
-							SendAvatar: chatMessageReq.SendAvatar,
+							SendAvatar: message.SendAvatar,
 							ReceiveId:  message.ReceiveId,
 							Type:       message.Type,
 							Content:    message.Content,
@@ -142,27 +190,17 @@ func (s *Server) Start() {
 							FileType:   message.FileType,
 							CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
 						}
-						jsonMessage, err := json.Marshal(messageRsp)
-						if err != nil {
-							zlog.Error(err.Error())
-						}
-						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
-						var messageBack = &MessageBack{
-							Message: jsonMessage,
-							Uuid:    message.Uuid,
-						}
 						s.mutex.Lock()
 						// 判断是否在线, 在线则发送, 否则跳过
 						if receiveClient, ok := s.Clients[message.ReceiveId]; ok {
-							//messageBack.Message = jsonMessage
-							//messageBack.Uuid = message.Uuid
-							receiveClient.SendBack <- messageBack // 向client.Send发送
+							sendMessageToClient(receiveClient, &message, MsgStatusSuccess)
 						}
 						// 因为send_id肯定在线，所以这里在后端进行在线回显message，其实优化的话前端可以直接回显
 						// 问题在于前后端的req和rsp结构不同，前端存储message的messageList不能存req，只能存rsp
 						// 所以这里后端进行回显，前端不回显
-						sendClient := s.Clients[message.SendId]
-						sendClient.SendBack <- messageBack
+						if sendClient, ok := s.Clients[message.SendId]; ok {
+							sendMessageToClient(sendClient, &message, MsgStatusSuccess)
+						}
 						s.mutex.Unlock()
 
 						// Redis缓存：将消息追加到单聊消息列表缓存（下次查询直接读Redis，不查数据库）
@@ -189,7 +227,7 @@ func (s *Server) Start() {
 							}
 						}
 
-					} else if message.ReceiveId[0] == 'G' { // 发送给Group
+					} else if message.ReceiveId[0] == 'G' {
 						messageRsp := respond.GetGroupMessageListRespond{
 							SendId:     message.SendId,
 							SendName:   message.SendName,
@@ -484,6 +522,55 @@ func (s *Server) Start() {
 		}
 	}
 }
+
+
+func sendMessageToClient(client *Client, message *model.Message, code int8) {
+    // 基础响应体
+    messageRsp := respond.GetMessageListRespond{
+        SendId:     message.SendId,
+        SendName:   message.SendName,
+        SendAvatar: message.SendAvatar,
+        ReceiveId:  message.ReceiveId,
+        Type:       message.Type,
+        Url:        message.Url,
+        FileSize:   message.FileSize,
+        FileName:   message.FileName,
+        FileType:   message.FileType,
+        CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"), // 补充时间
+    }
+
+    // 根据状态码设置提示内容
+    switch code {
+    case MsgStatusServerError:
+        messageRsp.Content = "系统消息：消息发送失败（服务端错误）"
+    case MsgStatusNotFriend:
+        messageRsp.Content = "系统消息：消息发送失败，请检查好友关系"
+    default:
+        messageRsp.Content = message.Content // 正常消息用原内容
+    }
+
+    // 序列化并发送
+    jsonMessage, err := json.Marshal(messageRsp)
+    if err != nil {
+        zlog.Error("消息序列化失败: " + err.Error())
+        return
+    }
+    messageBack := &MessageBack{
+        Message: jsonMessage,
+        Uuid:    message.Uuid,
+    }
+
+    // 非阻塞发送，避免通道阻塞导致的问题
+    select {
+    case client.SendBack <- messageBack:
+        zlog.Info("消息已发送到客户端: " + client.Uuid)
+    default:
+        zlog.Warn("客户端通道已满，消息发送失败: " + client.Uuid)
+    }
+}
+
+
+
 
 func (s *Server) Close() {
 	close(s.Login)

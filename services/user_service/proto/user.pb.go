@@ -390,6 +390,120 @@ func (x *GetUserContactResponse) GetContact() *FriendContact {
 	return nil
 }
 
+// 查询联系人状态请求
+type GetContactStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`          // 当前用户UUID（如发送者sendId）
+	ContactId     string                 `protobuf:"bytes,2,opt,name=contact_id,json=contactId,proto3" json:"contact_id,omitempty"` // 联系人UUID（如接收者receiveId）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactStatusRequest) Reset() {
+	*x = GetContactStatusRequest{}
+	mi := &file_services_user_service_proto_user_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactStatusRequest) ProtoMessage() {}
+
+func (x *GetContactStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_user_service_proto_user_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetContactStatusRequest) Descriptor() ([]byte, []int) {
+	return file_services_user_service_proto_user_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GetContactStatusRequest) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *GetContactStatusRequest) GetContactId() string {
+	if x != nil {
+		return x.ContactId
+	}
+	return ""
+}
+
+// 查询联系人状态响应
+type GetContactStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`      // 状态码(0:无好友关系, 1:有好友关系, -1:系统错误)
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // 响应信息
+	Status        int32                  `protobuf:"varint,3,opt,name=status,proto3" json:"status,omitempty"`  // 好友状态(0:正常, 1:拉黑, 2:被拉黑, 3:删除好友...)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetContactStatusResponse) Reset() {
+	*x = GetContactStatusResponse{}
+	mi := &file_services_user_service_proto_user_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetContactStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetContactStatusResponse) ProtoMessage() {}
+
+func (x *GetContactStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_services_user_service_proto_user_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetContactStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetContactStatusResponse) Descriptor() ([]byte, []int) {
+	return file_services_user_service_proto_user_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GetContactStatusResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetContactStatusResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *GetContactStatusResponse) GetStatus() int32 {
+	if x != nil {
+		return x.Status
+	}
+	return 0
+}
+
 var File_services_user_service_proto_user_proto protoreflect.FileDescriptor
 
 const file_services_user_service_proto_user_proto_rawDesc = "" +
@@ -426,10 +540,19 @@ const file_services_user_service_proto_user_proto_rawDesc = "" +
 	"\x16GetUserContactResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12-\n" +
-	"\acontact\x18\x03 \x01(\v2\x13.user.FriendContactR\acontact2\x9e\x01\n" +
+	"\acontact\x18\x03 \x01(\v2\x13.user.FriendContactR\acontact\"Q\n" +
+	"\x17GetContactStatusRequest\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"contact_id\x18\x02 \x01(\tR\tcontactId\"`\n" +
+	"\x18GetContactStatusResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x16\n" +
+	"\x06status\x18\x03 \x01(\x05R\x06status2\xf1\x01\n" +
 	"\vUserService\x12B\n" +
 	"\vGetUserInfo\x12\x18.user.GetUserInfoRequest\x1a\x19.user.GetUserInfoResponse\x12K\n" +
-	"\x0eGetUserContact\x12\x1b.user.GetUserContactRequest\x1a\x1c.user.GetUserContactResponseB\x0eZ\f./proto/userb\x06proto3"
+	"\x0eGetUserContact\x12\x1b.user.GetUserContactRequest\x1a\x1c.user.GetUserContactResponse\x12Q\n" +
+	"\x10GetContactStatus\x12\x1d.user.GetContactStatusRequest\x1a\x1e.user.GetContactStatusResponseB\x0eZ\f./proto/userb\x06proto3"
 
 var (
 	file_services_user_service_proto_user_proto_rawDescOnce sync.Once
@@ -443,22 +566,26 @@ func file_services_user_service_proto_user_proto_rawDescGZIP() []byte {
 	return file_services_user_service_proto_user_proto_rawDescData
 }
 
-var file_services_user_service_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_services_user_service_proto_user_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_services_user_service_proto_user_proto_goTypes = []any{
-	(*GetUserInfoRequest)(nil),     // 0: user.GetUserInfoRequest
-	(*GetUserInfoResponse)(nil),    // 1: user.GetUserInfoResponse
-	(*GetUserContactRequest)(nil),  // 2: user.GetUserContactRequest
-	(*FriendContact)(nil),          // 3: user.FriendContact
-	(*GetUserContactResponse)(nil), // 4: user.GetUserContactResponse
+	(*GetUserInfoRequest)(nil),       // 0: user.GetUserInfoRequest
+	(*GetUserInfoResponse)(nil),      // 1: user.GetUserInfoResponse
+	(*GetUserContactRequest)(nil),    // 2: user.GetUserContactRequest
+	(*FriendContact)(nil),            // 3: user.FriendContact
+	(*GetUserContactResponse)(nil),   // 4: user.GetUserContactResponse
+	(*GetContactStatusRequest)(nil),  // 5: user.GetContactStatusRequest
+	(*GetContactStatusResponse)(nil), // 6: user.GetContactStatusResponse
 }
 var file_services_user_service_proto_user_proto_depIdxs = []int32{
 	3, // 0: user.GetUserContactResponse.contact:type_name -> user.FriendContact
 	0, // 1: user.UserService.GetUserInfo:input_type -> user.GetUserInfoRequest
 	2, // 2: user.UserService.GetUserContact:input_type -> user.GetUserContactRequest
-	1, // 3: user.UserService.GetUserInfo:output_type -> user.GetUserInfoResponse
-	4, // 4: user.UserService.GetUserContact:output_type -> user.GetUserContactResponse
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
+	5, // 3: user.UserService.GetContactStatus:input_type -> user.GetContactStatusRequest
+	1, // 4: user.UserService.GetUserInfo:output_type -> user.GetUserInfoResponse
+	4, // 5: user.UserService.GetUserContact:output_type -> user.GetUserContactResponse
+	6, // 6: user.UserService.GetContactStatus:output_type -> user.GetContactStatusResponse
+	4, // [4:7] is the sub-list for method output_type
+	1, // [1:4] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -475,7 +602,7 @@ func file_services_user_service_proto_user_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_user_service_proto_user_proto_rawDesc), len(file_services_user_service_proto_user_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   7,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

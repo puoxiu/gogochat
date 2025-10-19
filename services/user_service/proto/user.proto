@@ -46,9 +46,24 @@ message GetUserContactResponse {
   FriendContact contact = 3; // 好友关系信息（code=1时返回）
 }
 
+// 查询联系人状态请求
+message GetContactStatusRequest {
+  string user_id = 1;      // 当前用户UUID（如发送者sendId）
+  string contact_id = 2;   // 联系人UUID（如接收者receiveId）
+}
+// 查询联系人状态响应
+message GetContactStatusResponse {
+  int32 code = 1;              // 状态码(0:无好友关系, 1:有好友关系, -1:系统错误)
+  string message = 2;          // 响应信息
+  int32 status = 3;            // 好友状态(0:正常, 1:拉黑, 2:被拉黑, 3:删除好友...)
+}
+
+
+
 // 用户服务
 service UserService {
   // 获取用户信息
   rpc GetUserInfo(GetUserInfoRequest) returns (GetUserInfoResponse);
   rpc GetUserContact(GetUserContactRequest) returns (GetUserContactResponse); // 查询好友关系
+  rpc GetContactStatus(GetContactStatusRequest) returns (GetContactStatusResponse); // 查询联系人状态
 }

@@ -77,7 +77,7 @@ func (x *DeleteSessionsByUsersRequest) GetReceiveId() string {
 // 删除会话响应
 type DeleteSessionsByUsersResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`      // 状态码 1-成功 0-失败
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`      // 状态码 0-成功 -1-服务失败 -2 业务失败
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // 提示信息
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -127,6 +127,112 @@ func (x *DeleteSessionsByUsersResponse) GetMessage() string {
 	return ""
 }
 
+// 创建会话请求
+type CreateSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SendId        string                 `protobuf:"bytes,1,opt,name=send_id,json=sendId,proto3" json:"send_id,omitempty"`          // 发送者ID
+	ReceiveId     string                 `protobuf:"bytes,2,opt,name=receive_id,json=receiveId,proto3" json:"receive_id,omitempty"` // 接收者ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSessionRequest) Reset() {
+	*x = CreateSessionRequest{}
+	mi := &file_services_session_service_proto_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSessionRequest) ProtoMessage() {}
+
+func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_services_session_service_proto_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
+func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
+	return file_services_session_service_proto_session_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *CreateSessionRequest) GetSendId() string {
+	if x != nil {
+		return x.SendId
+	}
+	return ""
+}
+
+func (x *CreateSessionRequest) GetReceiveId() string {
+	if x != nil {
+		return x.ReceiveId
+	}
+	return ""
+}
+
+// 创建会话响应
+type CreateSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`      // 状态码 0-成功 -1-服务失败 -2 业务失败
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"` // 提示信息
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateSessionResponse) Reset() {
+	*x = CreateSessionResponse{}
+	mi := &file_services_session_service_proto_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateSessionResponse) ProtoMessage() {}
+
+func (x *CreateSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_services_session_service_proto_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateSessionResponse.ProtoReflect.Descriptor instead.
+func (*CreateSessionResponse) Descriptor() ([]byte, []int) {
+	return file_services_session_service_proto_session_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CreateSessionResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CreateSessionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_services_session_service_proto_session_proto protoreflect.FileDescriptor
 
 const file_services_session_service_proto_session_proto_rawDesc = "" +
@@ -138,9 +244,17 @@ const file_services_session_service_proto_session_proto_rawDesc = "" +
 	"receive_id\x18\x02 \x01(\tR\treceiveId\"M\n" +
 	"\x1dDeleteSessionsByUsersResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2x\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"N\n" +
+	"\x14CreateSessionRequest\x12\x17\n" +
+	"\asend_id\x18\x01 \x01(\tR\x06sendId\x12\x1d\n" +
+	"\n" +
+	"receive_id\x18\x02 \x01(\tR\treceiveId\"E\n" +
+	"\x15CreateSessionResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xd2\x01\n" +
 	"\x0eSessionService\x12f\n" +
-	"\x15DeleteSessionsByUsers\x12%.session.DeleteSessionsByUsersRequest\x1a&.session.DeleteSessionsByUsersResponseB\x11Z\x0f./proto/sessionb\x06proto3"
+	"\x15DeleteSessionsByUsers\x12%.session.DeleteSessionsByUsersRequest\x1a&.session.DeleteSessionsByUsersResponse\x12X\n" +
+	"\x17CreateSessionIfNotExist\x12\x1d.session.CreateSessionRequest\x1a\x1e.session.CreateSessionResponseB\x11Z\x0f./proto/sessionb\x06proto3"
 
 var (
 	file_services_session_service_proto_session_proto_rawDescOnce sync.Once
@@ -154,16 +268,20 @@ func file_services_session_service_proto_session_proto_rawDescGZIP() []byte {
 	return file_services_session_service_proto_session_proto_rawDescData
 }
 
-var file_services_session_service_proto_session_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_services_session_service_proto_session_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_services_session_service_proto_session_proto_goTypes = []any{
 	(*DeleteSessionsByUsersRequest)(nil),  // 0: session.DeleteSessionsByUsersRequest
 	(*DeleteSessionsByUsersResponse)(nil), // 1: session.DeleteSessionsByUsersResponse
+	(*CreateSessionRequest)(nil),          // 2: session.CreateSessionRequest
+	(*CreateSessionResponse)(nil),         // 3: session.CreateSessionResponse
 }
 var file_services_session_service_proto_session_proto_depIdxs = []int32{
 	0, // 0: session.SessionService.DeleteSessionsByUsers:input_type -> session.DeleteSessionsByUsersRequest
-	1, // 1: session.SessionService.DeleteSessionsByUsers:output_type -> session.DeleteSessionsByUsersResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: session.SessionService.CreateSessionIfNotExist:input_type -> session.CreateSessionRequest
+	1, // 2: session.SessionService.DeleteSessionsByUsers:output_type -> session.DeleteSessionsByUsersResponse
+	3, // 3: session.SessionService.CreateSessionIfNotExist:output_type -> session.CreateSessionResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -180,7 +298,7 @@ func file_services_session_service_proto_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_services_session_service_proto_session_proto_rawDesc), len(file_services_session_service_proto_session_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

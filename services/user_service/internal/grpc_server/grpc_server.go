@@ -58,3 +58,21 @@ func (s *UserGrpcServer) GetUserContact(ctx context.Context, req *user.GetUserCo
 		},
 	}, nil
 }
+
+func (s *UserGrpcServer) GetContactStatus(ctx context.Context, req *user.GetContactStatusRequest) (*user.GetContactStatusResponse, error) {
+	msg, code, status := services.UserContactService.GetContactStatus(req.UserId, req.ContactId)
+
+	// code = 0 表示查询成功; code = -1 表示查询失败; code = -2 查询正常 但是数据不存在(业务错误)
+	if code != 0 {
+		return &user.GetContactStatusResponse{
+			Code:    int32(code),
+			Message: msg,
+			Status:  0,
+		}, nil
+	}
+	return &user.GetContactStatusResponse{
+		Code:      0,
+		Message:   msg,
+		Status:    int32(status),
+	}, nil
+}

@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SessionService_DeleteSessionsByUsers_FullMethodName = "/session.SessionService/DeleteSessionsByUsers"
+	SessionService_DeleteSessionsByUsers_FullMethodName   = "/session.SessionService/DeleteSessionsByUsers"
+	SessionService_CreateSessionIfNotExist_FullMethodName = "/session.SessionService/CreateSessionIfNotExist"
 )
 
 // SessionServiceClient is the client API for SessionService service.
@@ -30,6 +31,8 @@ const (
 type SessionServiceClient interface {
 	// 根据用户ID删除会话
 	DeleteSessionsByUsers(ctx context.Context, in *DeleteSessionsByUsersRequest, opts ...grpc.CallOption) (*DeleteSessionsByUsersResponse, error)
+	// 创建会话
+	CreateSessionIfNotExist(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResponse, error)
 }
 
 type sessionServiceClient struct {
@@ -50,6 +53,16 @@ func (c *sessionServiceClient) DeleteSessionsByUsers(ctx context.Context, in *De
 	return out, nil
 }
 
+func (c *sessionServiceClient) CreateSessionIfNotExist(ctx context.Context, in *CreateSessionRequest, opts ...grpc.CallOption) (*CreateSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateSessionResponse)
+	err := c.cc.Invoke(ctx, SessionService_CreateSessionIfNotExist_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // SessionServiceServer is the server API for SessionService service.
 // All implementations must embed UnimplementedSessionServiceServer
 // for forward compatibility.
@@ -58,6 +71,8 @@ func (c *sessionServiceClient) DeleteSessionsByUsers(ctx context.Context, in *De
 type SessionServiceServer interface {
 	// 根据用户ID删除会话
 	DeleteSessionsByUsers(context.Context, *DeleteSessionsByUsersRequest) (*DeleteSessionsByUsersResponse, error)
+	// 创建会话
+	CreateSessionIfNotExist(context.Context, *CreateSessionRequest) (*CreateSessionResponse, error)
 	mustEmbedUnimplementedSessionServiceServer()
 }
 
@@ -70,6 +85,9 @@ type UnimplementedSessionServiceServer struct{}
 
 func (UnimplementedSessionServiceServer) DeleteSessionsByUsers(context.Context, *DeleteSessionsByUsersRequest) (*DeleteSessionsByUsersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteSessionsByUsers not implemented")
+}
+func (UnimplementedSessionServiceServer) CreateSessionIfNotExist(context.Context, *CreateSessionRequest) (*CreateSessionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateSessionIfNotExist not implemented")
 }
 func (UnimplementedSessionServiceServer) mustEmbedUnimplementedSessionServiceServer() {}
 func (UnimplementedSessionServiceServer) testEmbeddedByValue()                        {}
@@ -110,6 +128,24 @@ func _SessionService_DeleteSessionsByUsers_Handler(srv interface{}, ctx context.
 	return interceptor(ctx, in, info, handler)
 }
 
+func _SessionService_CreateSessionIfNotExist_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SessionServiceServer).CreateSessionIfNotExist(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SessionService_CreateSessionIfNotExist_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SessionServiceServer).CreateSessionIfNotExist(ctx, req.(*CreateSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // SessionService_ServiceDesc is the grpc.ServiceDesc for SessionService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -120,6 +156,10 @@ var SessionService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteSessionsByUsers",
 			Handler:    _SessionService_DeleteSessionsByUsers_Handler,
+		},
+		{
+			MethodName: "CreateSessionIfNotExist",
+			Handler:    _SessionService_CreateSessionIfNotExist_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

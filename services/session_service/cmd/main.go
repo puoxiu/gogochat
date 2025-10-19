@@ -103,6 +103,14 @@ func main() {
 		}
 	}()
 
+		// 测试获取全局用户服务客户端
+	time.Sleep(time.Second * 5)
+	if userClient, err := clients.GetGlobalUserClient(); err == nil {
+		zlog.Info(fmt.Sprintf("main成功获取全局用户服务客户端: %v", userClient))
+	} else {
+		zlog.Error(fmt.Sprintf("main获取全局用户服务客户端失败: %v", err))
+	}
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit

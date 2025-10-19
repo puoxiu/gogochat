@@ -3,6 +3,8 @@ package clients
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/puoxiu/gogochat/pkg/zlog"
@@ -12,58 +14,57 @@ import (
 )
 
 type SessionClient struct {
-	client sessionpb.SessionServiceClient // GRPC生成的客户端接口
-	conn   *grpc.ClientConn         // GRPC连接实例
+	client sessionpb.SessionServiceClient
+	conn   *grpc.ClientConn
 }
 
 var (
-	globalSessionClient *SessionClient
+	globalSessionClient atomic.Value
+	onceSessionInit     sync.Once
 )
 
-// NewSessionClient 创建会话服务RPC客户端
-// addr: 会话服务的GRPC地址（格式："ip:port"，如"session-service:50051"）
 func NewSessionClient(addr string) (*SessionClient, error) {
-	// 建立GRPC连接（生产环境建议添加TLS配置）
-	conn, err := grpc.NewClient(
+	conn, err := grpc.Dial(
 		addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()), 
-		grpc.WithTimeout(5*time.Second),                          
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithTimeout(5*time.Second),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("连接会话服务失败: %v", err)
 	}
 
 	client := sessionpb.NewSessionServiceClient(conn)
-	return &SessionClient{
-		client: client,
-		conn:   conn,
-	}, nil
+	return &SessionClient{client: client, conn: conn}, nil
 }
 
-// InitGlobalSessionClient 初始化全局会话服务客户端（程序启动时调用一次）
+// 改造点3️⃣：原 once.Do 逻辑保留，但使用 atomic.Store
 func InitGlobalSessionClient(addr string) error {
 	var err error
-	once.Do(func() {
-		globalSessionClient, err = NewSessionClient(addr)
-		if err != nil {
+	onceSessionInit.Do(func() {
+		client, initErr := NewSessionClient(addr)
+		if initErr != nil {
+			err = initErr
 			zlog.Error(fmt.Sprintf("全局会话客户端初始化失败: %v", err))
-		} else {
-			zlog.Info("全局会话客户端初始化成功")
+			return
 		}
+		globalSessionClient.Store(client)
+		zlog.Info("全局会话客户端初始化成功")
 	})
 	return err
 }
 
-// GetGlobalSessionClient 获取全局会话服务客户端实例
+// 改造点4️⃣：统一通过 atomic.Load 获取全局客户端
 func GetGlobalSessionClient() (*SessionClient, error) {
-	if globalSessionClient == nil {
-		return nil, fmt.Errorf("会话客户端未初始化，请先调用InitGlobalSessionClient")
+	client, ok := globalSessionClient.Load().(*SessionClient)
+	if !ok || client == nil {
+		return nil, fmt.Errorf("会话客户端未初始化，请先调用 InitGlobalSessionClient")
 	}
-	return globalSessionClient, nil
+	return client, nil
 }
 
-// DeleteSessionsByUsers 调用会话服务删除用户会话
-func (sc *SessionClient) DeleteSessionsByUsers(userId string, contactId string) (*sessionpb.DeleteSessionsByUsersResponse) {
+// DeleteSessionsByUsers 删除会话
+func (sc *SessionClient) DeleteSessionsByUsers(userId, contactId string) *sessionpb.DeleteSessionsByUsersResponse {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
@@ -71,13 +72,22 @@ func (sc *SessionClient) DeleteSessionsByUsers(userId string, contactId string) 
 		SendId:    userId,
 		ReceiveId: contactId,
 	})
-
 	return resp
 }
 
+// CreateSessionIfNotExist 创建会话（若不存在）
+func (sc *SessionClient) CreateSessionIfNotExist(sendId, receiveId string) *sessionpb.CreateSessionResponse {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-// Close 关闭GRPC连接，释放资源
-// 在程序退出时调用（如main函数的defer中）
+	resp, _ := sc.client.CreateSessionIfNotExist(ctx, &sessionpb.CreateSessionRequest{
+		SendId:    sendId,
+		ReceiveId: receiveId,
+	})
+	return resp
+}
+
+// Close 关闭连接
 func (sc *SessionClient) Close() error {
 	if sc.conn != nil {
 		return sc.conn.Close()

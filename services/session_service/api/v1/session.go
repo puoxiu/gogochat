@@ -21,7 +21,7 @@ func OpenSession(c *gin.Context) {
 		})
 		return
 	}
-	message, sessionId, code := services.SessionService.OpenSession(openSessionReq)
+	message, sessionId, code := services.SessionService.OpenSession(openSessionReq.SendId, openSessionReq.ReceiveId)
 	JsonBack(c, message, code, sessionId)
 }
 

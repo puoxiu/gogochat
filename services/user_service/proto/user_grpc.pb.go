@@ -19,8 +19,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	UserService_GetUserInfo_FullMethodName    = "/user.UserService/GetUserInfo"
-	UserService_GetUserContact_FullMethodName = "/user.UserService/GetUserContact"
+	UserService_GetUserInfo_FullMethodName      = "/user.UserService/GetUserInfo"
+	UserService_GetUserContact_FullMethodName   = "/user.UserService/GetUserContact"
+	UserService_GetContactStatus_FullMethodName = "/user.UserService/GetContactStatus"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -32,6 +33,7 @@ type UserServiceClient interface {
 	// 获取用户信息
 	GetUserInfo(ctx context.Context, in *GetUserInfoRequest, opts ...grpc.CallOption) (*GetUserInfoResponse, error)
 	GetUserContact(ctx context.Context, in *GetUserContactRequest, opts ...grpc.CallOption) (*GetUserContactResponse, error)
+	GetContactStatus(ctx context.Context, in *GetContactStatusRequest, opts ...grpc.CallOption) (*GetContactStatusResponse, error)
 }
 
 type userServiceClient struct {
@@ -62,6 +64,16 @@ func (c *userServiceClient) GetUserContact(ctx context.Context, in *GetUserConta
 	return out, nil
 }
 
+func (c *userServiceClient) GetContactStatus(ctx context.Context, in *GetContactStatusRequest, opts ...grpc.CallOption) (*GetContactStatusResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetContactStatusResponse)
+	err := c.cc.Invoke(ctx, UserService_GetContactStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -71,6 +83,7 @@ type UserServiceServer interface {
 	// 获取用户信息
 	GetUserInfo(context.Context, *GetUserInfoRequest) (*GetUserInfoResponse, error)
 	GetUserContact(context.Context, *GetUserContactRequest) (*GetUserContactResponse, error)
+	GetContactStatus(context.Context, *GetContactStatusRequest) (*GetContactStatusResponse, error)
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -86,6 +99,9 @@ func (UnimplementedUserServiceServer) GetUserInfo(context.Context, *GetUserInfoR
 }
 func (UnimplementedUserServiceServer) GetUserContact(context.Context, *GetUserContactRequest) (*GetUserContactResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUserContact not implemented")
+}
+func (UnimplementedUserServiceServer) GetContactStatus(context.Context, *GetContactStatusRequest) (*GetContactStatusResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContactStatus not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -144,6 +160,24 @@ func _UserService_GetUserContact_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_GetContactStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetContactStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).GetContactStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_GetContactStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).GetContactStatus(ctx, req.(*GetContactStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -158,6 +192,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUserContact",
 			Handler:    _UserService_GetUserContact_Handler,
+		},
+		{
+			MethodName: "GetContactStatus",
+			Handler:    _UserService_GetContactStatus_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

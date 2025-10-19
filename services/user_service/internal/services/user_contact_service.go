@@ -660,3 +660,16 @@ func (u *userContactService) GetUserContact(userId string, contactId string) (st
 		Status:      contact.Status,
 	}, 0
 }
+
+// GetContactStatus 查询联系人状态 -✅
+func (u *userContactService) GetContactStatus(userId string, contactId string) (string, int8, int8) {
+	var contact model.UserContact
+	if res := dao.GormDB.Where("user_id = ? AND contact_id = ?", userId, contactId).First(&contact); res.Error != nil {
+		if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+			return "该好友关系不存在", contact_status_enum.NORMAL, -2
+		}
+		zlog.Error(fmt.Sprintf("查询好友关系失败：%v", res.Error))
+		return constants.SYSTEM_ERROR, contact_status_enum.NORMAL, -1
+	}
+	return "查询好友关系成功", 0, contact.Status
+}

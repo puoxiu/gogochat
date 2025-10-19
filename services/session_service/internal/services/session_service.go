@@ -148,17 +148,17 @@ func (s *sessionService) CheckOpenSessionAllowed(sendId, receiveId string) (stri
 // DeleteSession 删除会话
 
 // OpenSession 打开会话 -✅
-func (s *sessionService) OpenSession(req request.OpenSessionRequest) (string, string, int) {
-	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("session_" + req.SendId + "_" + req.ReceiveId)
+func (s *sessionService) OpenSession(sendId, receiveId string) (string, string, int) {
+	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("session_" + sendId + "_" + receiveId)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			var session model.Session
-			if res := dao.GormDB.Where("send_id = ? and receive_id = ?", req.SendId, req.ReceiveId).First(&session); res.Error != nil {
+			if res := dao.GormDB.Where("send_id = ? and receive_id = ?", sendId, receiveId).First(&session); res.Error != nil {
 				if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-					zlog.Info("会话没有找到，将新建会话")
+					zlog.Info(fmt.Sprintf("会话没有找到，将新建会话 sendId=%s, receiveId=%s", sendId, receiveId))
 					createReq := request.CreateSessionRequest{
-						SendId:    req.SendId,
-						ReceiveId: req.ReceiveId,
+						SendId:    sendId,
+						ReceiveId: receiveId,
 					}
 					return s.CreateSession(createReq)
 				}
@@ -171,7 +171,7 @@ func (s *sessionService) OpenSession(req request.OpenSessionRequest) (string, st
 				zlog.Error(fmt.Sprintf("会话序列化错误: %s", err.Error()))
 				return constants.SYSTEM_ERROR, "", -1
 			}
-			if err := cache.GetGlobalCache().SetKeyEx("session_"+req.SendId+"_"+req.ReceiveId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
+			if err := cache.GetGlobalCache().SetKeyEx("session_"+sendId+"_"+receiveId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
 				zlog.Warn(fmt.Sprintf("缓存会话错误: %s", err.Error()))
 			}
 			return "打开会话成功", session.Uuid, 0
