@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -28,11 +29,11 @@ var MessageService = new(messageService)
 
 // GetMessageList 获取聊天记录
 func (m *messageService) GetMessageList(userOneId, userTwoId string) (string, []respond.GetMessageListRespond, int) {
-	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("message_list_" + userOneId + "_" + userTwoId)
+	cacheKey := "message_list_" + userOneId + "_" + userTwoId
+	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr(cacheKey)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
-			zlog.Info(err.Error())
-			zlog.Info(fmt.Sprintf("%s %s", userTwoId, userTwoId))
+			zlog.Info("缓存未命中，查询数据库: " + cacheKey)
 			var messageList []model.Message
 			if res := dao.GormDB.Where("(send_id = ? AND receive_id = ?) OR (send_id = ? AND receive_id = ?)", userOneId, userTwoId, userTwoId, userOneId).Order("created_at ASC").Find(&messageList); res.Error != nil {
 				zlog.Error(res.Error.Error())
@@ -54,13 +55,14 @@ func (m *messageService) GetMessageList(userOneId, userTwoId string) (string, []
 					CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
 				})
 			}
-			//rspString, err := json.Marshal(rspList)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := cache.GetGlobalCache().SetKeyEx("message_list_"+userOneId+"_"+userTwoId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
-			//	zlog.Error(err.Error())
-			//}
+			rspString, err := json.Marshal(rspList)
+			if err != nil {
+				zlog.Error("序列化消息列表失败: " + err.Error())
+			} else {
+				if err := cache.GetGlobalCache().SetKeyEx(cacheKey, string(rspString), time.Minute * constants.REDIS_TIMEOUT); err != nil {
+					zlog.Error("缓存消息列表失败: " + err.Error())
+				}
+			}
 			return "获取聊天记录成功", rspList, 0
 		} else {
 			zlog.Error(err.Error())
@@ -70,13 +72,15 @@ func (m *messageService) GetMessageList(userOneId, userTwoId string) (string, []
 	var rsp []respond.GetMessageListRespond
 	if err := json.Unmarshal([]byte(rspString), &rsp); err != nil {
 		zlog.Error(err.Error())
+		return constants.SYSTEM_ERROR, nil, -1
 	}
-	return "获取群聊记录成功", rsp, 0
+	return "获取聊天记录成功", rsp, 0
 }
 
 // GetGroupMessageList 获取群聊消息记录
 func (m *messageService) GetGroupMessageList(groupId string) (string, []respond.GetGroupMessageListRespond, int) {
-	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("group_messagelist_" + groupId)
+	cacheKey := "group_messagelist_" + groupId
+	rspString, err := cache.GetGlobalCache().GetKeyNilIsErr(cacheKey)
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			var messageList []model.Message
@@ -101,13 +105,14 @@ func (m *messageService) GetGroupMessageList(groupId string) (string, []respond.
 				}
 				rspList = append(rspList, rsp)
 			}
-			//rspString, err := json.Marshal(rspList)
-			//if err != nil {
-			//	zlog.Error(err.Error())
-			//}
-			//if err := cache.GetGlobalCache().SetKeyEx("group_messagelist_"+groupId, string(rspString), time.Minute*constants.REDIS_TIMEOUT); err != nil {
-			//	zlog.Error(err.Error())
-			//}
+			rspString, err := json.Marshal(rspList)
+			if err != nil {
+				zlog.Error("序列化群聊消息列表失败: " + err.Error())
+			} else {
+				if err := cache.GetGlobalCache().SetKeyEx(cacheKey, string(rspString), time.Minute * constants.REDIS_TIMEOUT); err != nil {
+					zlog.Error("缓存群聊消息列表失败: " + err.Error())
+				}
+			}
 			return "获取聊天记录成功", rspList, 0
 		} else {
 			zlog.Error(err.Error())
@@ -116,7 +121,8 @@ func (m *messageService) GetGroupMessageList(groupId string) (string, []respond.
 	}
 	var rsp []respond.GetGroupMessageListRespond
 	if err := json.Unmarshal([]byte(rspString), &rsp); err != nil {
-		zlog.Error(err.Error())
+		zlog.Error("群聊消息缓存反序列化失败: " + err.Error())
+		return constants.SYSTEM_ERROR, nil, -1
 	}
 	return "获取聊天记录成功", rsp, 0
 }
