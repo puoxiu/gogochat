@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	// "log"
-
 	"net/http"
 	"strconv"
 	"time"
@@ -30,11 +28,11 @@ type MessageBack struct {
 }
 
 type Client struct {
-	Conn     *websocket.Conn	// 客户端连接
-	Uuid     string				// 客户端uuid
+	Conn     *websocket.Conn
+	Uuid     string	
 	SendTo   chan []byte       // 给server端
 	SendBack chan *MessageBack // 给前端
-	HeartBeatDone     chan struct{} // 用于退出心跳协程
+	HeartBeatDone     chan struct{}
 }
 
 var upgrader = websocket.Upgrader{
@@ -55,17 +53,14 @@ func (c *Client) Read() {
 	    if r := recover(); r != nil {
         	zlog.Error(fmt.Sprintf("panic in Read(): %v", r))
     	}
-		// 无论是前端主动断开、网络错误还是解析失败，Read 协程退出时都清理资源
 		ClientLogout(c.Uuid)
 	}()
 
 	for {
-		// 阻塞有一定隐患，因为下面要处理缓冲的逻辑，但是可以先不做优化，问题不大
-		_, jsonMessage, err := c.Conn.ReadMessage() // 阻塞状态
+		_, jsonMessage, err := c.Conn.ReadMessage()
 		if err != nil {
-			// 超时或其他错误，直接断开websocket  defer
 			zlog.Error(err.Error())
-			return // 直接断开websocket
+			return
 		} else {
 			var message = request.ChatMessageRequest{}
 			if err := json.Unmarshal(jsonMessage, &message); err != nil {
@@ -110,7 +105,7 @@ func (c *Client) Write() {
 		err := c.Conn.WriteMessage(websocket.TextMessage, messageBack.Message)
 		if err != nil {
 			zlog.Error(err.Error())
-			return // 直接断开websocket
+			return
 		}
 		// 说明顺利发送，修改状态为已发送
 		if res := dao.GormDB.Model(&model.Message{}).Where("uuid = ?", messageBack.Uuid).Update("status", message_status_enum.Sent); res.Error != nil {
@@ -142,7 +137,6 @@ func NewClientInit(c *gin.Context, clientId string) {
 	go client.Write()
 	zlog.Info("ws连接成功")
 
-	// 心跳机制
 	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
 	conn.SetPongHandler(func(appData string) error {
 		conn.SetReadDeadline(time.Now().Add(30 * time.Second))

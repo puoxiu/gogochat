@@ -52,7 +52,7 @@ func init() {
 	}
 }
 
-// 将https://127.0.0.1:8000/static/xxx 转为 /static/xxx
+// normalizePath 将https://127.0.0.1:8000/static/xxx 转为 /static/xxx
 func normalizePath(path string) string {
 	// 查找 "/static/" 的位置
 	if path == "https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" {
@@ -67,7 +67,51 @@ func normalizePath(path string) string {
 	return path[staticIndex:]
 }
 
-// Start 启动函数，Server端用主进程起，Client端可以用协程起
+// validateMessage 在发送之前 进行检验 准备工作
+func (s *Server) validateMessage(message *model.Message) bool {
+		// 判断是否是正常好友关系
+	userClients, err := clients.GetGlobalUserClient()
+	if err != nil {
+		zlog.Error("获取用户客户端失败: " + err.Error())
+		// 向发送者反馈服务端错误
+		s.mutex.Lock()
+		if sendClient, ok := s.Clients[message.SendId]; ok {
+			sendMessageToClient(sendClient, message, MsgStatusServerError)
+		}
+		s.mutex.Unlock()
+		return false
+	}
+	resp := userClients.GetContactStatus(message.SendId, message.ReceiveId)
+	if resp.Code == -1 {
+		zlog.Error("查询好友关系失败: " + resp.Message)
+		s.mutex.Lock()
+		if sendClient, ok := s.Clients[message.SendId]; ok {
+			sendMessageToClient(sendClient, message, MsgStatusServerError)
+		}
+		s.mutex.Unlock()
+		return false
+	}
+	if resp.Status != 0 {
+		zlog.Info("用户" + message.SendId + "和用户" + message.ReceiveId + "不是好友关系")
+		s.mutex.Lock()
+		if sendClient, ok := s.Clients[message.SendId]; ok {
+			sendMessageToClient(sendClient, message, MsgStatusNotFriend)
+		}
+		s.mutex.Unlock()
+		return false
+	}
+	// 为接收者创建与发送者的会话（如果不存在）
+	sessionClient, err := clients.GetGlobalSessionClient()
+	if err != nil {
+		zlog.Error("获取会话客户端失败: " + err.Error())
+	} else {
+		if resp := sessionClient.CreateSessionIfNotExist(message.ReceiveId, message.SendId); resp.Code != 0 {
+			zlog.Error("为接收者创建会话失败: " + resp.Message)
+		}
+	}
+	return true
+}
+
 func (s *Server) Start() {
 	defer func() {
 		close(s.Transmit)
@@ -132,51 +176,10 @@ func (s *Server) Start() {
 						zlog.Error(res.Error.Error())
 					}
 					if message.ReceiveId[0] == 'U' {
-						// 判断是否是正常好友关系
-						userClients, err := clients.GetGlobalUserClient()
-						if err != nil {
-							zlog.Error("获取用户客户端失败: " + err.Error())
-							// 向发送者反馈服务端错误
-							s.mutex.Lock()
-							if sendClient, ok := s.Clients[message.SendId]; ok {
-								sendMessageToClient(sendClient, &message, MsgStatusServerError)
-							}
-							s.mutex.Unlock()
-							continue
-						}
-						resp := userClients.GetContactStatus(message.SendId, message.ReceiveId)
-						if resp.Code == -1 {
-							zlog.Error("查询好友关系失败: " + resp.Message)
-							s.mutex.Lock()
-							if sendClient, ok := s.Clients[message.SendId]; ok {
-								sendMessageToClient(sendClient, &message, MsgStatusServerError)
-							}
-							s.mutex.Unlock()
-							continue
-						}
-						if resp.Status != 0 {
-							zlog.Info("用户" + message.SendId + "和用户" + message.ReceiveId + "不是好友关系")
-						    s.mutex.Lock()
-							if sendClient, ok := s.Clients[message.SendId]; ok {
-								sendMessageToClient(sendClient, &message, MsgStatusNotFriend)
-							}
-							s.mutex.Unlock()
+						if !s.validateMessage(&message) {
 							continue
 						}
 
-						// 为接收者创建与发送者的会话（如果不存在）
-						sessionClient, err := clients.GetGlobalSessionClient()
-						if err != nil {
-							zlog.Error("获取会话客户端失败: " + err.Error())
-						} else {
-							if resp := sessionClient.CreateSessionIfNotExist(message.ReceiveId, message.SendId); resp.Code != 0 {
-								zlog.Error("为接收者创建会话失败: " + resp.Message)
-							}
-						}
-
-						// 如果能找到ReceiveId，说明在线，可以发送，否则存表后跳过
-						// 因为在线的时候是通过websocket更新消息记录的，离线后通过存表，登录时只调用一次数据库操作
-						// 切换chat对象后，前端的messageList也会改变，获取messageList从第二次就是从redis中获取
 						messageRsp := respond.GetMessageListRespond{
 							SendId:     message.SendId,
 							SendName:   message.SendName,
@@ -191,23 +194,15 @@ func (s *Server) Start() {
 							CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
 						}
 						s.mutex.Lock()
-						// 判断是否在线, 在线则发送, 否则跳过
 						if receiveClient, ok := s.Clients[message.ReceiveId]; ok {
 							sendMessageToClient(receiveClient, &message, MsgStatusSuccess)
 						}
-						// 因为send_id肯定在线，所以这里在后端进行在线回显message，其实优化的话前端可以直接回显
-						// 问题在于前后端的req和rsp结构不同，前端存储message的messageList不能存req，只能存rsp
-						// 所以这里后端进行回显，前端不回显
 						if sendClient, ok := s.Clients[message.SendId]; ok {
 							sendMessageToClient(sendClient, &message, MsgStatusSuccess)
 						}
 						s.mutex.Unlock()
 
-						// Redis缓存：将消息追加到单聊消息列表缓存（下次查询直接读Redis，不查数据库）
-						var rspString string
-						rspString, err = cache.GetGlobalCache().GetKeyNilIsErr("message_list_" + message.SendId + "_" + message.ReceiveId)
-						if err == nil {
-							// 说明缓存存在（无错误，说明之前有过聊天记录）则直接追加到缓存中
+						if rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("message_list_" + message.SendId + "_" + message.ReceiveId); err == nil {
 							var rsp []respond.GetMessageListRespond
 							if err = json.Unmarshal([]byte(rspString), &rsp); err != nil {
 								zlog.Error(err.Error())
@@ -226,7 +221,6 @@ func (s *Server) Start() {
 								zlog.Error(err.Error())
 							}
 						}
-
 					} else if message.ReceiveId[0] == 'G' {
 						messageRsp := respond.GetGroupMessageListRespond{
 							SendId:     message.SendId,
@@ -296,7 +290,6 @@ func (s *Server) Start() {
 						}
 					}
 				} else if chatMessageReq.Type == message_type_enum.File {
-					// 存message
 					message := model.Message{
 						Uuid:       fmt.Sprintf("M%s", random.GetNowAndLenRandomString(11)),
 						SessionId:  chatMessageReq.SessionId,
@@ -319,10 +312,13 @@ func (s *Server) Start() {
 					if res := dao.GormDB.Create(&message); res.Error != nil {
 						zlog.Error(res.Error.Error())
 					}
-					if message.ReceiveId[0] == 'U' { // 发送给User
-						// 如果能找到ReceiveId，说明在线，可以发送，否则存表后跳过
-						// 因为在线的时候是通过websocket更新消息记录的，离线后通过存表，登录时只调用一次数据库操作
-						// 切换chat对象后，前端的messageList也会改变，获取messageList从第二次就是从redis中获取
+					if message.ReceiveId[0] == 'U' {
+						if !s.validateMessage(&message) {
+							fmt.Println("验证不通过")
+							continue
+						}
+						fmt.Println("验证通过")
+
 						messageRsp := respond.GetMessageListRespond{
 							SendId:     message.SendId,
 							SendName:   message.SendName,
@@ -336,32 +332,17 @@ func (s *Server) Start() {
 							FileType:   message.FileType,
 							CreatedAt:  message.CreatedAt.Format("2006-01-02 15:04:05"),
 						}
-						jsonMessage, err := json.Marshal(messageRsp)
-						if err != nil {
-							zlog.Error(err.Error())
-						}
-						// log.Println("返回的消息为：", messageRsp, "序列化后为：", jsonMessage)
-						var messageBack = &MessageBack{
-							Message: jsonMessage,
-							Uuid:    message.Uuid,
-						}
+
 						s.mutex.Lock()
 						if receiveClient, ok := s.Clients[message.ReceiveId]; ok {
-							//messageBack.Message = jsonMessage
-							//messageBack.Uuid = message.Uuid
-							receiveClient.SendBack <- messageBack // 向client.Send发送
+							sendMessageToClient(receiveClient, &message, MsgStatusSuccess)
 						}
-						// 因为send_id肯定在线，所以这里在后端进行在线回显message，其实优化的话前端可以直接回显
-						// 问题在于前后端的req和rsp结构不同，前端存储message的messageList不能存req，只能存rsp
-						// 所以这里后端进行回显，前端不回显
-						sendClient := s.Clients[message.SendId]
-						sendClient.SendBack <- messageBack
+						if sendClient, ok := s.Clients[message.SendId]; ok {
+							sendMessageToClient(sendClient, &message, MsgStatusSuccess)
+						}
 						s.mutex.Unlock()
 
-						// redis
-						var rspString string
-						rspString, err = cache.GetGlobalCache().GetKeyNilIsErr("message_list_" + message.SendId + "_" + message.ReceiveId)
-						if err == nil {
+						if rspString, err := cache.GetGlobalCache().GetKeyNilIsErr("message_list_" + message.SendId + "_" + message.ReceiveId); err == nil {
 							var rsp []respond.GetMessageListRespond
 							if err := json.Unmarshal([]byte(rspString), &rsp); err != nil {
 								zlog.Error(err.Error())
@@ -445,12 +426,12 @@ func (s *Server) Start() {
 							}
 						}
 					}
+					fmt.Println("到这里")
 				} else if chatMessageReq.Type == message_type_enum.AudioOrVideo {
 					var avData request.AVData	//  音视频信令结构体（含通话类型、通话ID等）
 					if err := json.Unmarshal([]byte(chatMessageReq.AVdata), &avData); err != nil {
 						zlog.Error(err.Error())
 					}
-					//log.Println(avData)
 					message := model.Message{
 						Uuid:       fmt.Sprintf("M%s", random.GetNowAndLenRandomString(11)),
 						SessionId:  chatMessageReq.SessionId,
@@ -477,10 +458,11 @@ func (s *Server) Start() {
 						}
 					}
 
-					if chatMessageReq.ReceiveId[0] == 'U' { // 发送给User
-						// 如果能找到ReceiveId，说明在线，可以发送，否则存表后跳过
-						// 因为在线的时候是通过websocket更新消息记录的，离线后通过存表，登录时只调用一次数据库操作
-						// 切换chat对象后，前端的messageList也会改变，获取messageList从第二次就是从redis中获取
+					if chatMessageReq.ReceiveId[0] == 'U' {
+						if !s.validateMessage(&message) {
+							continue
+						}
+
 						messageRsp := respond.AVMessageRespond{
 							SendId:     message.SendId,
 							SendName:   message.SendName,
